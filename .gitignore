@@ -1,0 +1,10 @@
+.env
+.env.*
+node_modules/
+coverage/
+dist/
+*.log
+.DS_Store
+Thumbs.db
+private-data/
+exports/
