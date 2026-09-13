@@ -7,20 +7,16 @@ const memoryStorage = () => {
   return { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
 };
 
-test('uses the API when it is available', async () => {
-  const calls = [];
-  const fetcher = async (url, options = {}) => {
-    calls.push({ url, options });
-    return { ok: true, json: async () => [{ id: 'server-trade', date: '2026-09-13' }] };
-  };
-  const store = new TradeStore({ fetcher, storage: memoryStorage() });
+test('uses local-only storage without contacting a backend when no private connection is configured', async () => {
+  let calls = 0;
+  const store = new TradeStore({ fetcher: async () => { calls += 1; throw new Error('backend must not be used'); }, storage: memoryStorage() });
   const result = await store.list();
-  assert.equal(result.source, 'api');
-  assert.equal(result.trades[0].id, 'server-trade');
-  assert.equal(calls[0].url, '/api/trades');
+  assert.equal(result.source, 'local');
+  assert.deepEqual(result.trades, []);
+  assert.equal(calls, 0);
 });
 
-test('uses clearly identified local-only storage only when the API is unavailable', async () => {
+test('creates local-only trades when no private connection is configured', async () => {
   const storage = memoryStorage();
   const store = new TradeStore({ fetcher: async () => { throw new Error('offline'); }, storage, idFactory: () => 'local-1' });
   const created = await store.create({ date: '2026-09-13', entryTime: '09:30', stopLossPoints: 10, riskReward: 2, direction: 'long', notes: '' });

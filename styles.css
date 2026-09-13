@@ -235,6 +235,16 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .danger { color: var(--danger); }
 .danger:hover { border-color: var(--danger); box-shadow: 0 0 13px rgb(255 145 141 / 17%); }
 
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: 1.25rem 0; }
+.stats > div { padding: .8rem; background: rgb(4 8 27 / 55%); border: 1px solid #34416b; }
+.stats dt { color: var(--muted); font-size: .75rem; font-weight: 700; }
+.stats dd { margin: .25rem 0 0; color: var(--cyan); font-size: 1.2rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+caption { padding-bottom: .7rem; text-align: left; color: var(--muted); font-size: .875rem; }
+th, td { padding: .65rem; text-align: left; border-bottom: 1px solid #34416b; white-space: nowrap; }
+th { color: var(--cyan); font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; }
+
 @media (max-width: 850px) {
   main { grid-template-columns: 1fr; }
   .entry-panel { grid-row: auto; }
@@ -255,6 +265,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   .trade-row { flex-direction: column; }
   .trade-values { white-space: normal; }
   .row-actions { margin-left: 0; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
