@@ -1,0 +1,7 @@
+name = "gleb-gold-backtest-api"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# Set the allowed frontend at deploy time, for example:
+# npx wrangler secret put FRONTEND_ORIGIN
+# GITHUB_TOKEN is also a Worker secret and is intentionally not stored here.
