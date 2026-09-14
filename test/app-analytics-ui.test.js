@@ -8,7 +8,7 @@ const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 test('analytics UI renders circular time, direction splits, and daily aggregate R labels', () => {
   for (const label of [
     'Average entry time of day', 'Average exit time of day', 'Total long trades', 'Total short trades',
-    'Long wins', 'Long losses', 'Short wins', 'Short losses', 'Total winning trades', 'R total'
+    'Long wins', 'Long losses', 'Short wins', 'Short losses', 'Total winning trades', 'R total', 'Total R'
   ]) assert.match(appSource, new RegExp(label));
 });
 

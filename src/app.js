@@ -46,7 +46,7 @@ function renderDay() {
 function renderStats() {
   const stats = tradeStats(state.trades);
   const values = [
-    ['Total winning trades', stats.totalWins], ['Total losses', stats.totalLosses],
+    ['Total winning trades', stats.totalWins], ['Total losses', stats.totalLosses], ['Total R', formatRiskReward(riskRewardTotal(state.trades))],
     ['Total long trades', stats.totalLong], ['Total short trades', stats.totalShort],
     ['Long wins', stats.longWins], ['Long losses', stats.longLosses],
     ['Short wins', stats.shortWins], ['Short losses', stats.shortLosses],
