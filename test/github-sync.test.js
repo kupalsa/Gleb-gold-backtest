@@ -16,3 +16,21 @@ test('saves trades with the loaded SHA, returns GitHub content SHA, and persists
   assert.equal(JSON.parse(calls[0].options.body).sha, 'sha-1'); assert.equal(saved.sha, 'sha-2'); assert.equal(local.getItem('gleb-gold-backtest.github-connection.v1'), null);
   sync.connect({ owner: 'kupalsa', repo: 'Gleb-gold-backtest-data', token: 'test-token', remember: true }); assert.match(local.getItem('gleb-gold-backtest.github-connection.v1'), /test-token/);
 });
+
+test('uses a window-bound default fetch safely in Safari-style environments', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = function (url) {
+    if (this !== globalThis) throw new TypeError('Can only call Window.fetch on instances of Window');
+    calls.push(url);
+    return Promise.resolve({ ok: true, json: async () => ({ sha: 'sha-1', content: btoa('[]') }) });
+  };
+  try {
+    const sync = new GitHubTradeSync({ session: memoryStorage(), local: memoryStorage() });
+    sync.connect({ owner: 'kupalsa', repo: 'Gleb-gold-backtest-data', token: 'test-token', remember: false });
+    await sync.load();
+    assert.equal(calls.length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
