@@ -230,7 +230,8 @@ dialog input[type="checkbox"] { width: 1.1rem; min-height: 1.1rem; padding: 0; }
 .day.outside { color: #68749a; background: rgb(5 9 25 / 72%); }
 .day.selected { z-index: 1; color: #fff; background: linear-gradient(145deg, #202257, #111940); box-shadow: inset 0 0 0 2px var(--edge-bright), inset 0 0 22px rgb(159 77 255 / 18%); }
 .day.selected::after { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; content: ""; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
-.day b { display: block; margin-top: .45rem; color: var(--cyan); font-size: .82rem; }
+.day b, .day i { display: block; margin-top: .45rem; color: var(--cyan); font-size: .82rem; }
+.day i { margin-top: .12rem; color: var(--emerald); font-style: normal; }
 
 .count, .pill { display: inline-flex; align-items: center; min-height: 25px; padding: .13rem .45rem; border: 1px solid #536092; border-radius: 999px; font-size: .74rem; font-weight: 750; white-space: nowrap; }
 .count { color: var(--cyan); border-color: rgb(57 216 255 / 62%); }

@@ -51,3 +51,23 @@ test('connected GitHub store reads, writes full arrays with SHA, keeps token ses
   await assert.rejects(() => store.create({ ...trade('ignored'), id: undefined, entryTime: '13:00' }), /changed on GitHub.*Sync trades/i);
   assert.deepEqual(remote, [trade('refreshed')]);
 });
+
+test('GitHub full-array sync loads and preserves negative risk-reward trade fields used by analytics', async () => {
+  const session = memoryStorage(); const local = memoryStorage(); let savedPayload;
+  const remote = [{ ...trade('overnight', '23:50'), exitTime: '00:10', direction: 'short', outcome: 'loss', riskReward: -0.5 }];
+  const fetcher = async (_url, options = {}) => {
+    if (!options.method) return { ok: true, json: async () => ({ sha: 'analytics-sha', content: btoa(JSON.stringify(remote)) }) };
+    savedPayload = JSON.parse(options.body);
+    return { ok: true, json: async () => ({ content: '', sha: 'saved-analytics-sha' }) };
+  };
+  const sync = new GitHubTradeSync({ fetcher, session, local });
+  const store = new TradeStore({ githubSync: sync, storage: local, idFactory: () => 'new-analytics' });
+  store.connectGitHub({ owner: 'kupalsa', repo: 'Gleb-gold-backtest-data', token: 'secret-pat', remember: false });
+
+  assert.deepEqual((await store.list()).trades, remote);
+  await store.create({ ...trade('ignored', '00:20'), id: undefined, exitTime: '00:30', direction: 'long', outcome: 'win', riskReward: 0 });
+  assert.deepEqual(JSON.parse(atob(savedPayload.content)).map(({ id, entryTime, exitTime, direction, outcome, riskReward }) => ({ id, entryTime, exitTime, direction, outcome, riskReward })), [
+    { id: 'overnight', entryTime: '23:50', exitTime: '00:10', direction: 'short', outcome: 'loss', riskReward: -0.5 },
+    { id: 'new-analytics', entryTime: '00:20', exitTime: '00:30', direction: 'long', outcome: 'win', riskReward: 0 }
+  ]);
+});

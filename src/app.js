@@ -1,7 +1,7 @@
 import { TradeStore } from './trade-store.js';
 import { GitHubTradeSync } from './github-sync.js';
 import { wireDataConnection } from './data-connection.js';
-import { validateTrade, groupTradesByDate, tradesForDate, durationInMinutes, tradeStats } from './trades.js';
+import { validateTrade, groupTradesByDate, tradesForDate, durationInMinutes, riskRewardTotal, tradeStats } from './trades.js';
 import { calendarCells, shiftMonth } from './calendar.js';
 import { dataStatus, showTradeFailure, showTradeSuccess } from './feedback.js';
 
@@ -13,6 +13,11 @@ const readableDate = (date) => new Intl.DateTimeFormat('en-US', { weekday: 'long
 const formatDuration = (minutes) => `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 const formatAverageDuration = (minutes) => formatDuration(Math.round(minutes));
 const formatPoints = (value) => Number.isInteger(value) ? String(value) : value.toFixed(2);
+const formatTimeOfDay = (minutes) => {
+  const rounded = Math.round(minutes) % (24 * 60);
+  return `${String(Math.floor(rounded / 60)).padStart(2, '0')}:${String(rounded % 60).padStart(2, '0')}`;
+};
+const formatRiskReward = (value) => `${value > 0 ? '+' : ''}${formatPoints(value)} R`;
 
 function setStatus(source, detail = '') {
   state.source = source;
@@ -23,10 +28,10 @@ function renderCalendar() {
   $('#calendar-heading').textContent = labels.format(new Date(`${state.month}-01T12:00:00`));
   const grouped = groupTradesByDate(state.trades); const calendar = $('#calendar'); calendar.replaceChildren();
   calendarCells(state.month).forEach((cell) => {
-    const count = grouped[cell.date]?.length || 0; const button = document.createElement('button');
+    const trades = grouped[cell.date] || []; const count = trades.length; const riskReward = riskRewardTotal(trades); const button = document.createElement('button');
     button.type = 'button'; button.className = `day ${cell.inMonth ? '' : 'outside'} ${state.selectedDate === cell.date ? 'selected' : ''}`;
-    button.dataset.date = cell.date; button.setAttribute('aria-label', `${readableDate(cell.date)}${count ? `, ${count} trade${count === 1 ? '' : 's'}` : ', no trades'}`);
-    button.innerHTML = `<span>${cell.day}</span>${count ? `<b>${count}</b>` : ''}`; button.addEventListener('click', () => { state.selectedDate = cell.date; renderCalendar(); renderDay(); }); calendar.append(button);
+    button.dataset.date = cell.date; button.setAttribute('aria-label', `${readableDate(cell.date)}${count ? `, ${count} trade${count === 1 ? '' : 's'}, R total ${formatRiskReward(riskReward)}` : ', no trades'}`);
+    button.innerHTML = `<span>${cell.day}</span>${count ? `<b>${count} trade${count === 1 ? '' : 's'}</b><i>R total ${formatRiskReward(riskReward)}</i>` : ''}`; button.addEventListener('click', () => { state.selectedDate = cell.date; renderCalendar(); renderDay(); }); calendar.append(button);
   });
 }
 function renderDay() {
@@ -39,7 +44,12 @@ function renderDay() {
 function renderStats() {
   const stats = tradeStats(state.trades);
   const values = [
-    ['Total wins', stats.totalWins], ['Total losses', stats.totalLosses],
+    ['Total winning trades', stats.totalWins], ['Total losses', stats.totalLosses],
+    ['Total long trades', stats.totalLong], ['Total short trades', stats.totalShort],
+    ['Long wins', stats.longWins], ['Long losses', stats.longLosses],
+    ['Short wins', stats.shortWins], ['Short losses', stats.shortLosses],
+    ['Average entry time of day', formatTimeOfDay(stats.averageEntryTimeMinutes)],
+    ['Average exit time of day', formatTimeOfDay(stats.averageExitTimeMinutes)],
     ['Average duration in trade', formatAverageDuration(stats.averageDurationMinutes)],
     ['Average stop loss (gold points/pips)', formatPoints(stats.averageStopLossPoints)]
   ];
