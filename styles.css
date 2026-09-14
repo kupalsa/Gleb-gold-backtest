@@ -194,6 +194,17 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .primary:hover { background: #69f1a2; border-color: #8affbd; box-shadow: 0 0 0 1px rgb(73 230 139 / 35%), 0 0 22px rgb(73 230 139 / 35%); }
 
 .error { min-height: 1.45em; margin-top: .75rem; color: var(--danger); font-size: .875rem; font-weight: 650; }
+.success { min-height: 1.45em; margin-top: .75rem; color: var(--emerald); font-size: .875rem; font-weight: 650; }
+.connection-status { min-height: 1.45em; margin: .75rem 0; color: var(--muted); font-size: .875rem; font-weight: 650; }
+.connection-status.error { color: var(--danger); }
+.connection-status.success { color: var(--emerald); }
+
+dialog { width: min(100% - 2rem, 34rem); padding: 1.4rem; color: var(--text); background: var(--surface); border: 1px solid var(--edge-bright); border-radius: 4px; }
+dialog::backdrop { background: rgb(0 0 0 / 62%); }
+dialog form { display: grid; gap: .9rem; }
+dialog label input { margin-top: .38rem; }
+dialog label:has(input[type="checkbox"]) { display: flex; align-items: center; gap: .55rem; }
+dialog input[type="checkbox"] { width: 1.1rem; min-height: 1.1rem; padding: 0; }
 
 .month-buttons { display: flex; flex-wrap: wrap; gap: .45rem; justify-content: flex-end; }
 .month-buttons button { min-width: 44px; }

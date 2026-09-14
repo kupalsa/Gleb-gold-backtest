@@ -3,6 +3,7 @@ import { GitHubTradeSync } from './github-sync.js';
 import { wireDataConnection } from './data-connection.js';
 import { validateTrade, groupTradesByDate, tradesForDate, durationInMinutes, tradeStats } from './trades.js';
 import { calendarCells, shiftMonth } from './calendar.js';
+import { dataStatus, showTradeFailure, showTradeSuccess } from './feedback.js';
 
 const $ = (selector) => document.querySelector(selector);
 const form = $('#trade-form'); const store = new TradeStore({ githubSync: new GitHubTradeSync() });
@@ -15,7 +16,7 @@ const formatPoints = (value) => Number.isInteger(value) ? String(value) : value.
 
 function setStatus(source, detail = '') {
   state.source = source;
-  $('#data-status').textContent = source === 'github' ? 'GitHub private data connected.' : source === 'error' ? detail : 'LOCAL-ONLY FALLBACK — no private connection is configured. Trades are saved only in this browser.';
+  $('#data-status').textContent = dataStatus(source, detail);
   $('#data-status').classList.toggle('local', source === 'local');
 }
 function renderCalendar() {
@@ -53,10 +54,10 @@ function renderStats() {
 }
 function escapeText(value) { const node = document.createElement('span'); node.textContent = value; return node.innerHTML; }
 function values() { return Object.fromEntries(new FormData(form)); }
-function clearForm() { form.reset(); $('#trade-id').value = ''; $('#cancel-edit').hidden = true; form.querySelector('.primary').textContent = 'Save trade'; $('#form-error').textContent = ''; }
+function clearForm() { form.reset(); $('#trade-id').value = ''; $('#cancel-edit').hidden = true; form.querySelector('.primary').textContent = 'Save trade'; $('#form-error').textContent = ''; $('#form-success').textContent = ''; }
 function startEdit(trade) { Object.entries(trade).forEach(([key, value]) => { const field = form.elements[key]; if (field) field.value = value; }); $('#trade-id').value = trade.id; $('#cancel-edit').hidden = false; form.querySelector('.primary').textContent = 'Update trade'; $('#trade-form').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 async function refresh() { const result = await store.list(); state.trades = result.trades; setStatus(result.source); renderCalendar(); renderDay(); renderStats(); }
-form.addEventListener('submit', async (event) => { event.preventDefault(); const input = values(); const errors = validateTrade(input); if (Object.keys(errors).length) { $('#form-error').textContent = Object.values(errors).join(' '); return; } try { const id = $('#trade-id').value; if (id) await store.update(id, input); else await store.create(input); state.selectedDate = input.date; state.month = input.date.slice(0, 7); clearForm(); await refresh(); } catch (error) { setStatus('error', error.message); } });
+form.addEventListener('submit', async (event) => { event.preventDefault(); const input = values(); const errors = validateTrade(input); if (Object.keys(errors).length) { $('#form-success').textContent = ''; $('#form-error').textContent = Object.values(errors).join(' '); return; } try { const id = $('#trade-id').value; const saved = id ? await store.update(id, input) : await store.create(input); state.selectedDate = input.date; state.month = input.date.slice(0, 7); clearForm(); await refresh(); showTradeSuccess({ formError: $('#form-error'), formSuccess: $('#form-success'), trade: saved.trade, source: saved.source }); } catch (error) { showTradeFailure({ formError: $('#form-error'), formSuccess: $('#form-success'), setStatus, error }); } });
 $('#cancel-edit').addEventListener('click', clearForm); $('#previous-month').addEventListener('click', () => { state.month = shiftMonth(state.month, -1); renderCalendar(); }); $('#next-month').addEventListener('click', () => { state.month = shiftMonth(state.month, 1); renderCalendar(); }); $('#today-month').addEventListener('click', () => { state.month = new Date().toISOString().slice(0, 7); renderCalendar(); });
-wireDataConnection({ connectionButton: $('#data-connection'), syncButton: $('#sync-trades'), dialog: $('#connection-dialog'), form: $('#connection-form'), closeButton: $('#close-connection'), store, refresh, setStatus });
+wireDataConnection({ connectionButton: $('#data-connection'), syncButton: $('#sync-trades'), dialog: $('#connection-dialog'), form: $('#connection-form'), closeButton: $('#close-connection'), store, refresh, setStatus, setDialogStatus: (kind, message) => { const status = $('#connection-status'); status.textContent = message; status.classList.toggle('error', kind === 'error'); status.classList.toggle('success', kind === 'success'); } });
 refresh().catch((error) => setStatus('error', error.message));

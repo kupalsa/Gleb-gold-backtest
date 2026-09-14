@@ -8,6 +8,10 @@ export class TradeStore {
   localTrades() { try { return JSON.parse(this.storage.getItem(LOCAL_KEY) || '[]'); } catch { return []; } }
   saveLocal(trades) { this.storage.setItem(LOCAL_KEY, JSON.stringify(trades)); }
   hasGitHubConnection() { return Boolean(this.githubSync?.connection); }
+  connectionDetails() {
+    const connection = this.githubSync?.connection;
+    return connection ? { owner: connection.owner, repo: connection.repo } : null;
+  }
   connectGitHub(connection) { if (!this.githubSync) throw new Error('GitHub sync is unavailable.'); this.githubSync.connect(connection); this.githubTrades = []; this.githubSha = null; }
   async list() {
     if (this.hasGitHubConnection()) {

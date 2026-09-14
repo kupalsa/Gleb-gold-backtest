@@ -30,6 +30,7 @@ test('connected GitHub store reads, writes full arrays with SHA, keeps token ses
   store.connectGitHub({ owner: 'kupalsa', repo: 'Gleb-gold-backtest-data', token: 'secret-pat', remember: false });
 
   assert.equal(local.getItem('gleb-gold-backtest.github-connection.v1'), null);
+  assert.deepEqual(store.connectionDetails(), { owner: 'kupalsa', repo: 'Gleb-gold-backtest-data' });
   assert.deepEqual((await store.list()), { source: 'github', trades: [trade('remote-1')] });
 
   await store.create({ ...trade('ignored'), id: undefined, entryTime: '11:00' });
