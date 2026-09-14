@@ -12,6 +12,7 @@ test('analytics UI renders circular time, direction splits, and daily aggregate 
   ]) assert.match(appSource, new RegExp(label));
 });
 
-test('risk-to-reward field exposes the -1 minimum in the browser', () => {
+test('risk-to-reward field exposes the -1 minimum and a keyboard that can enter a minus sign', () => {
   assert.match(html, /name="riskReward"[^>]*min="-1"/);
+  assert.match(html, /name="riskReward"[^>]*inputmode="text"/);
 });
