@@ -6,6 +6,7 @@ export function validateTrade(input) {
   if (!(Number(input.stopLossPoints) > 0)) errors.stopLossPoints = 'Stop loss must be greater than 0 points.';
   if (String(input.riskReward ?? '').trim() === '' || !Number.isFinite(Number(input.riskReward)) || Number(input.riskReward) < -1) errors.riskReward = 'Risk-to-reward must be at least -1.';
   if (!['win', 'loss'].includes(input.outcome)) errors.outcome = 'Choose win or loss.';
+  if (input.movedTakeProfit === 'yes' && !['good', 'wasted'].includes(input.takeProfitMoveResult)) errors.takeProfitMoveResult = 'Choose what happened after moving the take profit.';
   return errors;
 }
 
@@ -48,6 +49,9 @@ export function tradeStats(trades) {
     longLosses: longTrades.filter((trade) => trade.outcome === 'loss').length,
     shortWins: shortTrades.filter((trade) => trade.outcome === 'win').length,
     shortLosses: shortTrades.filter((trade) => trade.outcome === 'loss').length,
+    movedTakeProfits: trades.filter((trade) => trade.movedTakeProfit === 'yes').length,
+    goodTakeProfitMoves: trades.filter((trade) => trade.movedTakeProfit === 'yes' && trade.takeProfitMoveResult === 'good').length,
+    wastedTakeProfitMoves: trades.filter((trade) => trade.movedTakeProfit === 'yes' && trade.takeProfitMoveResult === 'wasted').length,
     averageDurationMinutes: average(durations),
     averageStopLossPoints: average(stopLosses),
     averageEntryTimeMinutes: circularTimeAverage(trades.filter((trade) => validTime(trade.entryTime)).map((trade) => trade.entryTime)),
@@ -56,7 +60,7 @@ export function tradeStats(trades) {
 }
 
 export function normalizeTrade(input) {
-  return {
+  const trade = {
     id: input.id,
     date: String(input.date),
     entryTime: String(input.entryTime),
@@ -67,6 +71,11 @@ export function normalizeTrade(input) {
     outcome: input.outcome === 'loss' ? 'loss' : 'win',
     notes: String(input.notes || '').trim()
   };
+  if ('movedTakeProfit' in input) {
+    trade.movedTakeProfit = input.movedTakeProfit === 'yes' ? 'yes' : 'no';
+    trade.takeProfitMoveResult = trade.movedTakeProfit === 'yes' && ['good', 'wasted'].includes(input.takeProfitMoveResult) ? input.takeProfitMoveResult : '';
+  }
+  return trade;
 }
 
 export const monthKey = (date) => String(date).slice(0, 7);

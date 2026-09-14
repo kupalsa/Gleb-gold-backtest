@@ -4,6 +4,7 @@ import { wireDataConnection } from './data-connection.js';
 import { validateTrade, groupTradesByDate, tradesForDate, durationInMinutes, riskRewardTotal, tradeStats } from './trades.js';
 import { calendarCells, shiftMonth } from './calendar.js';
 import { dataStatus, showTradeFailure, showTradeSuccess } from './feedback.js';
+import { syncTakeProfitMoveFields } from './take-profit-move.js';
 
 const $ = (selector) => document.querySelector(selector);
 const form = $('#trade-form'); const store = new TradeStore({ githubSync: new GitHubTradeSync() });
@@ -18,6 +19,7 @@ const formatTimeOfDay = (minutes) => {
   return `${String(Math.floor(rounded / 60)).padStart(2, '0')}:${String(rounded % 60).padStart(2, '0')}`;
 };
 const formatRiskReward = (value) => `${value > 0 ? '+' : ''}${formatPoints(value)} R`;
+const syncTakeProfitMoveForm = () => syncTakeProfitMoveFields({ moved: $('#movedTakeProfit'), result: $('#takeProfitMoveResult'), container: $('#take-profit-move-result') });
 
 function setStatus(source, detail = '') {
   state.source = source;
@@ -48,6 +50,7 @@ function renderStats() {
     ['Total long trades', stats.totalLong], ['Total short trades', stats.totalShort],
     ['Long wins', stats.longWins], ['Long losses', stats.longLosses],
     ['Short wins', stats.shortWins], ['Short losses', stats.shortLosses],
+    ['Moved take profits', stats.movedTakeProfits], ['Good take-profit moves', stats.goodTakeProfitMoves], ['Wasted take-profit moves', stats.wastedTakeProfitMoves],
     ['Average entry time of day', formatTimeOfDay(stats.averageEntryTimeMinutes)],
     ['Average exit time of day', formatTimeOfDay(stats.averageExitTimeMinutes)],
     ['Average duration in trade', formatAverageDuration(stats.averageDurationMinutes)],
@@ -64,10 +67,11 @@ function renderStats() {
 }
 function escapeText(value) { const node = document.createElement('span'); node.textContent = value; return node.innerHTML; }
 function values() { return Object.fromEntries(new FormData(form)); }
-function clearForm() { form.reset(); $('#trade-id').value = ''; $('#cancel-edit').hidden = true; form.querySelector('.primary').textContent = 'Save trade'; $('#form-error').textContent = ''; $('#form-success').textContent = ''; }
-function startEdit(trade) { Object.entries(trade).forEach(([key, value]) => { const field = form.elements[key]; if (field) field.value = value; }); $('#trade-id').value = trade.id; $('#cancel-edit').hidden = false; form.querySelector('.primary').textContent = 'Update trade'; $('#trade-form').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+function clearForm() { form.reset(); syncTakeProfitMoveForm(); $('#trade-id').value = ''; $('#cancel-edit').hidden = true; form.querySelector('.primary').textContent = 'Save trade'; $('#form-error').textContent = ''; $('#form-success').textContent = ''; }
+function startEdit(trade) { Object.entries(trade).forEach(([key, value]) => { const field = form.elements[key]; if (field) field.value = value; }); syncTakeProfitMoveForm(); $('#trade-id').value = trade.id; $('#cancel-edit').hidden = false; form.querySelector('.primary').textContent = 'Update trade'; $('#trade-form').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 async function refresh() { const result = await store.list(); state.trades = result.trades; setStatus(result.source); renderCalendar(); renderDay(); renderStats(); }
 form.addEventListener('submit', async (event) => { event.preventDefault(); const input = values(); const errors = validateTrade(input); if (Object.keys(errors).length) { $('#form-success').textContent = ''; $('#form-error').textContent = Object.values(errors).join(' '); return; } try { const id = $('#trade-id').value; const saved = id ? await store.update(id, input) : await store.create(input); state.selectedDate = input.date; state.month = input.date.slice(0, 7); clearForm(); await refresh(); showTradeSuccess({ formError: $('#form-error'), formSuccess: $('#form-success'), trade: saved.trade, source: saved.source }); } catch (error) { showTradeFailure({ formError: $('#form-error'), formSuccess: $('#form-success'), setStatus, error }); } });
+$('#movedTakeProfit').addEventListener('change', syncTakeProfitMoveForm); syncTakeProfitMoveForm();
 $('#cancel-edit').addEventListener('click', clearForm); $('#previous-month').addEventListener('click', () => { state.month = shiftMonth(state.month, -1); renderCalendar(); }); $('#next-month').addEventListener('click', () => { state.month = shiftMonth(state.month, 1); renderCalendar(); }); $('#today-month').addEventListener('click', () => { state.month = new Date().toISOString().slice(0, 7); renderCalendar(); });
 wireDataConnection({ connectionButton: $('#data-connection'), syncButton: $('#sync-trades'), dialog: $('#connection-dialog'), form: $('#connection-form'), closeButton: $('#close-connection'), store, refresh, setStatus, setDialogStatus: (kind, message) => { const status = $('#connection-status'); status.textContent = message; status.classList.toggle('error', kind === 'error'); status.classList.toggle('success', kind === 'success'); } });
 refresh().catch((error) => setStatus('error', error.message));

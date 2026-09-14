@@ -16,6 +16,15 @@ test('requires a win or loss outcome', () => {
   assert.equal(result.outcome, 'Choose win or loss.');
 });
 
+test('requires a take-profit move result only when take profit was moved', () => {
+  const base = { date: '2026-09-13', entryTime: '09:30', exitTime: '10:00', stopLossPoints: '12.5', riskReward: '2.0', outcome: 'win' };
+  assert.equal(validateTrade({ ...base }).takeProfitMoveResult, undefined);
+  assert.equal(validateTrade({ ...base, movedTakeProfit: 'no' }).takeProfitMoveResult, undefined);
+  assert.equal(validateTrade({ ...base, movedTakeProfit: 'yes' }).takeProfitMoveResult, 'Choose what happened after moving the take profit.');
+  assert.equal(validateTrade({ ...base, movedTakeProfit: 'yes', takeProfitMoveResult: 'good' }).takeProfitMoveResult, undefined);
+  assert.equal(validateTrade({ ...base, movedTakeProfit: 'yes', takeProfitMoveResult: 'wasted' }).takeProfitMoveResult, undefined);
+});
+
 test('accepts risk-to-reward values from -1 upward, including zero and fractional losses', () => {
   for (const riskReward of ['-1', '-0.5', '0', '2.5']) {
     assert.equal(validateTrade({ date: '2026-09-13', entryTime: '09:30', exitTime: '10:00', stopLossPoints: '10', riskReward, outcome: 'win' }).riskReward, undefined);
@@ -44,6 +53,7 @@ test('summarizes existing totals plus direction and outcome splits from entered 
   assert.deepEqual(summary, {
     totalWins: 2, totalLosses: 1, totalLong: 2, totalShort: 1,
     longWins: 2, longLosses: 0, shortWins: 0, shortLosses: 1,
+    movedTakeProfits: 0, goodTakeProfitMoves: 0, wastedTakeProfitMoves: 0,
     averageDurationMinutes: 50, averageStopLossPoints: 20,
     averageEntryTimeMinutes: 407.36, averageExitTimeMinutes: 477.59
   });
@@ -58,6 +68,22 @@ test('calculates circular entry and exit time averages across midnight', () => {
   assert.equal(summary.averageExitTimeMinutes, 5);
 });
 
+test('reports zero-safe take-profit movement statistics', () => {
+  const noMoves = tradeStats([]);
+  assert.deepEqual({ movedTakeProfits: noMoves.movedTakeProfits, goodTakeProfitMoves: noMoves.goodTakeProfitMoves, wastedTakeProfitMoves: noMoves.wastedTakeProfitMoves }, {
+    movedTakeProfits: 0, goodTakeProfitMoves: 0, wastedTakeProfitMoves: 0
+  });
+  const summary = tradeStats([
+    { movedTakeProfit: 'yes', takeProfitMoveResult: 'good' },
+    { movedTakeProfit: 'yes', takeProfitMoveResult: 'wasted' },
+    { movedTakeProfit: 'no', takeProfitMoveResult: '' },
+    {}
+  ]);
+  assert.deepEqual({ movedTakeProfits: summary.movedTakeProfits, goodTakeProfitMoves: summary.goodTakeProfitMoves, wastedTakeProfitMoves: summary.wastedTakeProfitMoves }, {
+    movedTakeProfits: 2, goodTakeProfitMoves: 1, wastedTakeProfitMoves: 1
+  });
+});
+
 test('sums valid risk-to-reward values for a calendar day', () => {
   assert.equal(riskRewardTotal([
     { riskReward: 1.5 }, { riskReward: -0.5 }, { riskReward: 'invalid' }
@@ -70,6 +96,14 @@ test('normalizes a trade without inventing trading data', () => {
   });
   assert.deepEqual(trade, {
     id: 'trade-1', date: '2026-09-13', entryTime: '09:30', exitTime: '10:45', stopLossPoints: 12.5, riskReward: 2, direction: 'short', outcome: 'loss', notes: 'London setup'
+  });
+});
+
+test('normalizes optional take-profit movement values without changing prior records', () => {
+  const base = { id: 'trade-1', date: '2026-09-13', entryTime: '09:30', exitTime: '10:45', stopLossPoints: '12.50', riskReward: '2.0', direction: 'short', outcome: 'loss', notes: 'London setup' };
+  assert.deepEqual(normalizeTrade(base), { ...base, stopLossPoints: 12.5, riskReward: 2 });
+  assert.deepEqual(normalizeTrade({ ...base, movedTakeProfit: 'yes', takeProfitMoveResult: 'good' }), {
+    ...base, stopLossPoints: 12.5, riskReward: 2, movedTakeProfit: 'yes', takeProfitMoveResult: 'good'
   });
 });
 
