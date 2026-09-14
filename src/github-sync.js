@@ -1,6 +1,12 @@
 const KEY = 'gleb-gold-backtest.github-connection.v1';
 const PATH = 'data/trades.json';
 
+async function githubFailure(response, action) {
+  let detail = '';
+  try { detail = (await response.json()).message || ''; } catch { /* GitHub may return an empty/non-JSON failure body. */ }
+  return new Error(`GitHub ${action} failed (${response.status || 'network'}): ${detail || 'Check the repository, PAT permissions, and connection.'}`);
+}
+
 export class GitHubTradeSync {
   constructor({ fetcher = (...args) => (globalThis.window || globalThis).fetch(...args), session = sessionStorage, local = localStorage } = {}) {
     this.fetcher = fetcher;
@@ -35,7 +41,7 @@ export class GitHubTradeSync {
     const response = await this.fetcher(this.url(), {
       headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${this.connection.token}` }
     });
-    if (!response.ok) throw new Error('GitHub load failed. Check the repository, PAT permissions, and connection.');
+    if (!response.ok) throw await githubFailure(response, 'load');
     const file = await response.json();
     return { trades: JSON.parse(atob(file.content.replace(/\n/g, ''))), sha: file.sha };
   }
@@ -54,7 +60,7 @@ export class GitHubTradeSync {
       if (response.status === 409 || response.status === 422) {
         throw new Error('GitHub data changed on GitHub. Click Sync trades to load the latest data before retrying; your change was not saved.');
       }
-      throw new Error('GitHub save failed. Check the repository, PAT permissions, and connection.');
+      throw await githubFailure(response, 'save');
     }
     const result = await response.json();
     return { ...result, sha: result.content?.sha ?? result.sha };

@@ -40,3 +40,10 @@ test('uses the actual window as fetch receiver in Safari-style environments', as
     globalThis.window = originalWindow;
   }
 });
+
+test('shows GitHub HTTP status and API message when a mobile connection is rejected', async () => {
+  const fetcher = async () => ({ ok: false, status: 403, json: async () => ({ message: 'Resource not accessible by personal access token' }) });
+  const sync = new GitHubTradeSync({ fetcher, session: memoryStorage(), local: memoryStorage() });
+  sync.connect({ owner: 'kupalsa', repo: 'Gleb-gold-backtest-data', token: 'test-token', remember: false });
+  await assert.rejects(sync.load(), /GitHub load failed \(403\): Resource not accessible by personal access token/);
+});
