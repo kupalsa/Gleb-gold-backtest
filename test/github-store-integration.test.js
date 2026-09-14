@@ -54,7 +54,7 @@ test('connected GitHub store reads, writes full arrays with SHA, keeps token ses
 
 test('GitHub full-array sync loads and preserves negative risk-reward trade fields used by analytics', async () => {
   const session = memoryStorage(); const local = memoryStorage(); let savedPayload;
-  const remote = [{ ...trade('overnight', '23:50'), exitTime: '00:10', direction: 'short', outcome: 'loss', riskReward: -0.5, movedTakeProfit: 'yes', takeProfitMoveResult: 'wasted' }];
+  const remote = [{ ...trade('overnight', '23:50'), exitDate: '2026-09-14', exitTime: '00:10', direction: 'short', outcome: 'loss', riskReward: -0.5, movedTakeProfit: 'yes', takeProfitMoveResult: 'wasted' }];
   const fetcher = async (_url, options = {}) => {
     if (!options.method) return { ok: true, json: async () => ({ sha: 'analytics-sha', content: btoa(JSON.stringify(remote)) }) };
     savedPayload = JSON.parse(options.body);
@@ -65,9 +65,9 @@ test('GitHub full-array sync loads and preserves negative risk-reward trade fiel
   store.connectGitHub({ owner: 'kupalsa', repo: 'Gleb-gold-backtest-data', token: 'secret-pat', remember: false });
 
   assert.deepEqual((await store.list()).trades, remote);
-  await store.create({ ...trade('ignored', '00:20'), id: undefined, exitTime: '00:30', direction: 'long', outcome: 'win', riskReward: 0, movedTakeProfit: 'yes', takeProfitMoveResult: 'good' });
-  assert.deepEqual(JSON.parse(atob(savedPayload.content)).map(({ id, entryTime, exitTime, direction, outcome, riskReward, movedTakeProfit, takeProfitMoveResult }) => ({ id, entryTime, exitTime, direction, outcome, riskReward, movedTakeProfit, takeProfitMoveResult })), [
-    { id: 'overnight', entryTime: '23:50', exitTime: '00:10', direction: 'short', outcome: 'loss', riskReward: -0.5, movedTakeProfit: 'yes', takeProfitMoveResult: 'wasted' },
-    { id: 'new-analytics', entryTime: '00:20', exitTime: '00:30', direction: 'long', outcome: 'win', riskReward: 0, movedTakeProfit: 'yes', takeProfitMoveResult: 'good' }
+  await store.create({ ...trade('ignored', '00:20'), id: undefined, exitDate: '2026-09-15', exitTime: '00:30', direction: 'long', outcome: 'win', riskReward: 0, movedTakeProfit: 'yes', takeProfitMoveResult: 'good' });
+  assert.deepEqual(JSON.parse(atob(savedPayload.content)).map(({ id, entryTime, exitDate, exitTime, direction, outcome, riskReward, movedTakeProfit, takeProfitMoveResult }) => ({ id, entryTime, exitDate, exitTime, direction, outcome, riskReward, movedTakeProfit, takeProfitMoveResult })), [
+    { id: 'overnight', entryTime: '23:50', exitDate: '2026-09-14', exitTime: '00:10', direction: 'short', outcome: 'loss', riskReward: -0.5, movedTakeProfit: 'yes', takeProfitMoveResult: 'wasted' },
+    { id: 'new-analytics', entryTime: '00:20', exitDate: '2026-09-15', exitTime: '00:30', direction: 'long', outcome: 'win', riskReward: 0, movedTakeProfit: 'yes', takeProfitMoveResult: 'good' }
   ]);
 });

@@ -1,8 +1,12 @@
 export function validateTrade(input) {
   const errors = {};
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(input.date || ''))) errors.date = 'Choose a trade date.';
+  const entryDate = String(input.date || '');
+  const exitDate = String(input.exitDate || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(entryDate)) errors.date = 'Choose a trade date.';
+  if (exitDate && !/^\d{4}-\d{2}-\d{2}$/.test(exitDate)) errors.exitDate = 'Use a valid exit date.';
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(input.entryTime || ''))) errors.entryTime = 'Use a valid entry time.';
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(input.exitTime || ''))) errors.exitTime = 'Use a valid exit time.';
+  if (exitDate && !errors.date && !errors.exitDate && !errors.entryTime && !errors.exitTime && durationInMinutes(input.entryTime, input.exitTime, entryDate, exitDate) < 0) errors.exitDate = 'Exit date and time cannot be before entry date and time.';
   if (!(Number(input.stopLossPoints) > 0)) errors.stopLossPoints = 'Stop loss must be greater than 0 points.';
   if (String(input.riskReward ?? '').trim() === '' || !Number.isFinite(Number(input.riskReward)) || Number(input.riskReward) < -1) errors.riskReward = 'Risk-to-reward must be at least -1.';
   if (!['win', 'loss'].includes(input.outcome)) errors.outcome = 'Choose win or loss.';
@@ -10,7 +14,8 @@ export function validateTrade(input) {
   return errors;
 }
 
-export function durationInMinutes(entryTime, exitTime) {
+export function durationInMinutes(entryTime, exitTime, entryDate, exitDate) {
+  if (exitDate) return (Date.parse(`${exitDate}T${exitTime}:00Z`) - Date.parse(`${entryDate}T${entryTime}:00Z`)) / 60000;
   const toMinutes = (time) => {
     const [hours, minutes] = String(time).split(':').map(Number);
     return hours * 60 + minutes;
@@ -35,7 +40,7 @@ const circularTimeAverage = (times) => {
 export const riskRewardTotal = (trades) => trades.reduce((sum, trade) => Number.isFinite(Number(trade.riskReward)) ? sum + Number(trade.riskReward) : sum, 0);
 
 export function tradeStats(trades) {
-  const durations = trades.filter((trade) => validTime(trade.entryTime) && validTime(trade.exitTime)).map((trade) => durationInMinutes(trade.entryTime, trade.exitTime));
+  const durations = trades.filter((trade) => validTime(trade.entryTime) && validTime(trade.exitTime)).map((trade) => durationInMinutes(trade.entryTime, trade.exitTime, trade.date, trade.exitDate));
   const stopLosses = trades.map((trade) => Number(trade.stopLossPoints)).filter((value) => value > 0);
   const average = (values) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
   const longTrades = trades.filter((trade) => trade.direction === 'long');
@@ -71,6 +76,7 @@ export function normalizeTrade(input) {
     outcome: input.outcome === 'loss' ? 'loss' : 'win',
     notes: String(input.notes || '').trim()
   };
+  if (String(input.exitDate || '').trim()) trade.exitDate = String(input.exitDate);
   if ('movedTakeProfit' in input) {
     trade.movedTakeProfit = input.movedTakeProfit === 'yes' ? 'yes' : 'no';
     trade.takeProfitMoveResult = trade.movedTakeProfit === 'yes' && ['good', 'wasted'].includes(input.takeProfitMoveResult) ? input.takeProfitMoveResult : '';

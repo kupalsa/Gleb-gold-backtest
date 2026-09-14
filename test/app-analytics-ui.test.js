@@ -28,3 +28,11 @@ test('take-profit move controls have clear choices and the result starts hidden'
 test('analytics UI renders take-profit movement statistics', () => {
   for (const label of ['Moved take profits', 'Good take-profit moves', 'Wasted take-profit moves']) assert.match(appSource, new RegExp(label));
 });
+
+test('trade UI offers an optional exit date and displays it conditionally without changing entry-date grouping', () => {
+  assert.match(html, /name="exitDate"[^>]*type="date"(?![^>]*required)/);
+  assert.match(html, /<th scope="col">Exit date<\/th>/);
+  assert.match(appSource, /escapeText\(trade\.exitDate\)/);
+  assert.match(appSource, /durationInMinutes\(trade\.entryTime, trade\.exitTime, trade\.date, trade\.exitDate\)/);
+  assert.match(appSource, /tradesForDate\(state\.trades, state\.selectedDate\)/);
+});

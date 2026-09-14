@@ -40,8 +40,17 @@ test('rejects missing date, invalid time, invalid stop loss, missing risk-to-rew
   assert.equal(validateTrade({ date: '2026-09-13', entryTime: '09:30', exitTime: '10:00', stopLossPoints: '10', riskReward: '-1.01', outcome: 'win' }).riskReward, 'Risk-to-reward must be at least -1.');
 });
 
-test('calculates duration across midnight', () => {
+test('calculates duration across midnight when exit date is blank', () => {
   assert.equal(durationInMinutes('23:45', '00:15'), 30);
+});
+
+test('calculates elapsed duration across supplied entry and exit dates', () => {
+  assert.equal(durationInMinutes('23:45', '00:15', '2026-09-13', '2026-09-15'), 1470);
+});
+
+test('rejects an exit date and time before the entry date and time', () => {
+  const errors = validateTrade({ date: '2026-09-13', entryTime: '09:30', exitDate: '2026-09-13', exitTime: '09:29', stopLossPoints: '10', riskReward: '2', outcome: 'win' });
+  assert.equal(errors.exitDate, 'Exit date and time cannot be before entry date and time.');
 });
 
 test('summarizes existing totals plus direction and outcome splits from entered trades', () => {
@@ -66,6 +75,11 @@ test('calculates circular entry and exit time averages across midnight', () => {
   ]);
   assert.equal(summary.averageEntryTimeMinutes, 0);
   assert.equal(summary.averageExitTimeMinutes, 5);
+});
+
+test('includes supplied exit dates in average duration calculations', () => {
+  const summary = tradeStats([{ date: '2026-09-13', entryTime: '23:45', exitDate: '2026-09-15', exitTime: '00:15', direction: 'long', outcome: 'win', stopLossPoints: 10 }]);
+  assert.equal(summary.averageDurationMinutes, 1470);
 });
 
 test('reports zero-safe take-profit movement statistics', () => {
@@ -105,6 +119,12 @@ test('normalizes optional take-profit movement values without changing prior rec
   assert.deepEqual(normalizeTrade({ ...base, movedTakeProfit: 'yes', takeProfitMoveResult: 'good' }), {
     ...base, stopLossPoints: 12.5, riskReward: 2, movedTakeProfit: 'yes', takeProfitMoveResult: 'good'
   });
+});
+
+test('normalizes a supplied exit date while leaving legacy records without one unchanged', () => {
+  const base = { id: 'trade-1', date: '2026-09-13', entryTime: '09:30', exitTime: '10:45', stopLossPoints: '12.50', riskReward: '2.0', direction: 'short', outcome: 'loss', notes: 'London setup' };
+  assert.deepEqual(normalizeTrade(base), { ...base, stopLossPoints: 12.5, riskReward: 2 });
+  assert.deepEqual(normalizeTrade({ ...base, exitDate: '2026-09-15' }), { ...base, exitDate: '2026-09-15', stopLossPoints: 12.5, riskReward: 2 });
 });
 
 test('filters and groups trades by their ISO trade date', () => {
