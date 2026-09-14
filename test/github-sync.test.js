@@ -17,14 +17,19 @@ test('saves trades with the loaded SHA, returns GitHub content SHA, and persists
   sync.connect({ owner: 'kupalsa', repo: 'Gleb-gold-backtest-data', token: 'test-token', remember: true }); assert.match(local.getItem('gleb-gold-backtest.github-connection.v1'), /test-token/);
 });
 
-test('uses a window-bound default fetch safely in Safari-style environments', async () => {
+test('uses the actual window as fetch receiver in Safari-style environments', async () => {
   const originalFetch = globalThis.fetch;
+  const originalWindow = globalThis.window;
   const calls = [];
-  globalThis.fetch = function (url) {
-    if (this !== globalThis) throw new TypeError('Can only call Window.fetch on instances of Window');
-    calls.push(url);
-    return Promise.resolve({ ok: true, json: async () => ({ sha: 'sha-1', content: btoa('[]') }) });
+  const safariWindow = {
+    fetch(url) {
+      if (this !== safariWindow) throw new TypeError('Can only call Window.fetch on instances of Window');
+      calls.push(url);
+      return Promise.resolve({ ok: true, json: async () => ({ sha: 'sha-1', content: btoa('[]') }) });
+    }
   };
+  globalThis.window = safariWindow;
+  globalThis.fetch = function () { throw new TypeError('Can only call Window.fetch on instances of Window'); };
   try {
     const sync = new GitHubTradeSync({ session: memoryStorage(), local: memoryStorage() });
     sync.connect({ owner: 'kupalsa', repo: 'Gleb-gold-backtest-data', token: 'test-token', remember: false });
@@ -32,5 +37,6 @@ test('uses a window-bound default fetch safely in Safari-style environments', as
     assert.equal(calls.length, 1);
   } finally {
     globalThis.fetch = originalFetch;
+    globalThis.window = originalWindow;
   }
 });

@@ -2,7 +2,7 @@ const KEY = 'gleb-gold-backtest.github-connection.v1';
 const PATH = 'data/trades.json';
 
 export class GitHubTradeSync {
-  constructor({ fetcher = (...args) => globalThis.fetch(...args), session = sessionStorage, local = localStorage } = {}) {
+  constructor({ fetcher = (...args) => (globalThis.window || globalThis).fetch(...args), session = sessionStorage, local = localStorage } = {}) {
     this.fetcher = fetcher;
     this.session = session;
     this.local = local;
