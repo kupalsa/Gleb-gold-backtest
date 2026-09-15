@@ -17,11 +17,10 @@ test('risk-to-reward field exposes the -1 minimum and a keyboard that can enter 
   assert.match(html, /name="riskReward"[^>]*inputmode="text"/);
 });
 
-test('take-profit move controls have clear choices and the result starts hidden', () => {
+test('take-profit move controls have clear choices and the initial scenario fieldset starts hidden', () => {
   assert.match(html, /Did I move the take profit\?/);
-  assert.match(html, /The price reached my initial take profit — moving it was a waste/);
-  assert.match(html, /The price reversed before initial TP and would have hit my stop loss — moving it was good/);
-  assert.match(html, /id="take-profit-move-result"[^>]*hidden/);
+  assert.match(html, /Initial Scenario \(Without TP Move\)/);
+  assert.match(html, /id="initial-scenario-fieldset"[^>]*hidden/);
   assert.match(appSource, /syncTakeProfitMoveFields/);
 });
 

@@ -1,5 +1,5 @@
 import { normalizeTrade } from './trades.js';
-import { normalizeBacktestsData } from './backtests.js';
+import { normalizeBacktestsData, MOVED_TP_BACKTEST_ID, NOT_MOVED_TP_BACKTEST_ID } from './backtests.js';
 
 const LOCAL_KEY = 'gleb-gold-backtest.local-trades.v1';
 
@@ -142,27 +142,91 @@ export class TradeStore {
   }
 
   async create(input) {
-    const trade = normalizeTrade({ ...input, id: this.idFactory() });
     const data = this.getData();
-    const active = data.backtests.find((b) => b.id === data.activeId) || data.backtests[0];
-    active.trades.push(trade);
+    const pairId = input.pairId || input.id || this.idFactory();
+
+    const movedBt = data.backtests.find((b) => b.id === MOVED_TP_BACKTEST_ID) || data.backtests[0];
+    const notMovedBt = data.backtests.find((b) => b.id === NOT_MOVED_TP_BACKTEST_ID) || data.backtests[1] || data.backtests[0];
+
+    const movedTrade = normalizeTrade({
+      ...input,
+      pairId,
+      id: pairId,
+      exitDate: input.exitDate,
+      exitTime: input.exitTime,
+      outcome: input.outcome,
+      riskReward: input.riskReward
+    });
+
+    const isMovedYes = input.movedTakeProfit === 'yes';
+    const notMovedTrade = normalizeTrade({
+      ...input,
+      pairId,
+      id: pairId,
+      exitDate: (isMovedYes && input.initialExitTime) ? (input.initialExitDate || input.exitDate) : input.exitDate,
+      exitTime: (isMovedYes && input.initialExitTime) ? input.initialExitTime : input.exitTime,
+      outcome: (isMovedYes && input.initialExitTime) ? input.initialOutcome : input.outcome,
+      riskReward: (isMovedYes && input.initialExitTime) ? input.initialRiskReward : input.riskReward
+    });
+
+    movedBt.trades.push(movedTrade);
+    if (notMovedBt && notMovedBt !== movedBt) {
+      notMovedBt.trades.push(notMovedTrade);
+    }
+
     await this.saveData(data);
-    return { source: this.mode, trade };
+    const activeBt = data.backtests.find((b) => b.id === data.activeId) || movedBt;
+    const activeTrade = activeBt.trades.find((t) => t.pairId === pairId || t.id === pairId) || movedTrade;
+    return { source: this.mode, trade: activeTrade };
   }
 
   async update(id, input) {
-    const trade = normalizeTrade({ ...input, id });
     const data = this.getData();
-    const active = data.backtests.find((b) => b.id === data.activeId) || data.backtests[0];
-    active.trades = active.trades.map((item) => (item.id === id ? trade : item));
+    const pairId = id;
+
+    const isMovedYes = input.movedTakeProfit === 'yes';
+
+    data.backtests.forEach((b) => {
+      const idx = b.trades.findIndex((item) => item.pairId === pairId || item.id === pairId);
+      if (idx !== -1) {
+        if (b.id === NOT_MOVED_TP_BACKTEST_ID) {
+          b.trades[idx] = normalizeTrade({
+            ...input,
+            pairId,
+            id: pairId,
+            exitDate: (isMovedYes && input.initialExitTime) ? (input.initialExitDate || input.exitDate) : input.exitDate,
+            exitTime: (isMovedYes && input.initialExitTime) ? input.initialExitTime : input.exitTime,
+            outcome: (isMovedYes && input.initialExitTime) ? input.initialOutcome : input.outcome,
+            riskReward: (isMovedYes && input.initialExitTime) ? input.initialRiskReward : input.riskReward
+          });
+        } else {
+          b.trades[idx] = normalizeTrade({
+            ...input,
+            pairId,
+            id: pairId,
+            exitDate: input.exitDate,
+            exitTime: input.exitTime,
+            outcome: input.outcome,
+            riskReward: input.riskReward
+          });
+        }
+      }
+    });
+
     await this.saveData(data);
-    return { source: this.mode, trade };
+    const activeBt = data.backtests.find((b) => b.id === data.activeId) || data.backtests[0];
+    const activeTrade = activeBt.trades.find((t) => t.pairId === pairId || t.id === pairId);
+    return { source: this.mode, trade: activeTrade };
   }
 
   async remove(id) {
     const data = this.getData();
-    const active = data.backtests.find((b) => b.id === data.activeId) || data.backtests[0];
-    active.trades = active.trades.filter((item) => item.id !== id);
+    const pairId = id;
+
+    data.backtests.forEach((b) => {
+      b.trades = b.trades.filter((item) => item.pairId !== pairId && item.id !== pairId);
+    });
+
     await this.saveData(data);
     return { source: this.mode };
   }

@@ -16,13 +16,12 @@ test('requires a win or loss outcome', () => {
   assert.equal(result.outcome, 'Choose win or loss.');
 });
 
-test('requires a take-profit move result only when take profit was moved', () => {
+test('requires initial exit fields when take profit was moved', () => {
   const base = { date: '2026-09-13', entryTime: '09:30', exitTime: '10:00', stopLossPoints: '12.5', riskReward: '2.0', outcome: 'win' };
-  assert.equal(validateTrade({ ...base }).takeProfitMoveResult, undefined);
-  assert.equal(validateTrade({ ...base, movedTakeProfit: 'no' }).takeProfitMoveResult, undefined);
-  assert.equal(validateTrade({ ...base, movedTakeProfit: 'yes' }).takeProfitMoveResult, 'Choose what happened after moving the take profit.');
-  assert.equal(validateTrade({ ...base, movedTakeProfit: 'yes', takeProfitMoveResult: 'good' }).takeProfitMoveResult, undefined);
-  assert.equal(validateTrade({ ...base, movedTakeProfit: 'yes', takeProfitMoveResult: 'wasted' }).takeProfitMoveResult, undefined);
+  assert.equal(validateTrade({ ...base }).initialExitTime, undefined);
+  assert.equal(validateTrade({ ...base, movedTakeProfit: 'no' }).initialExitTime, undefined);
+  assert.equal(validateTrade({ ...base, movedTakeProfit: 'yes' }).initialExitTime, 'Use a valid initial exit time.');
+  assert.equal(validateTrade({ ...base, movedTakeProfit: 'yes', initialExitTime: '10:00', initialOutcome: 'win', initialRiskReward: '2' }).initialExitTime, undefined);
 });
 
 test('accepts risk-to-reward values from -1 upward, including zero and fractional losses', () => {
@@ -109,12 +108,12 @@ test('normalizes a trade without inventing trading data', () => {
     id: 'trade-1', date: '2026-09-13', entryTime: '09:30', exitTime: '10:45', stopLossPoints: '12.50', riskReward: '2.0', direction: 'short', outcome: 'loss', notes: 'London setup'
   });
   assert.deepEqual(trade, {
-    id: 'trade-1', date: '2026-09-13', entryTime: '09:30', exitTime: '10:45', stopLossPoints: 12.5, riskReward: 2, direction: 'short', outcome: 'loss', notes: 'London setup'
+    id: 'trade-1', pairId: 'trade-1', date: '2026-09-13', entryTime: '09:30', exitTime: '10:45', stopLossPoints: 12.5, riskReward: 2, direction: 'short', outcome: 'loss', notes: 'London setup'
   });
 });
 
 test('normalizes optional take-profit movement values without changing prior records', () => {
-  const base = { id: 'trade-1', date: '2026-09-13', entryTime: '09:30', exitTime: '10:45', stopLossPoints: '12.50', riskReward: '2.0', direction: 'short', outcome: 'loss', notes: 'London setup' };
+  const base = { id: 'trade-1', pairId: 'trade-1', date: '2026-09-13', entryTime: '09:30', exitTime: '10:45', stopLossPoints: '12.50', riskReward: '2.0', direction: 'short', outcome: 'loss', notes: 'London setup' };
   assert.deepEqual(normalizeTrade(base), { ...base, stopLossPoints: 12.5, riskReward: 2 });
   assert.deepEqual(normalizeTrade({ ...base, movedTakeProfit: 'yes', takeProfitMoveResult: 'good' }), {
     ...base, stopLossPoints: 12.5, riskReward: 2, movedTakeProfit: 'yes', takeProfitMoveResult: 'good'
@@ -122,7 +121,7 @@ test('normalizes optional take-profit movement values without changing prior rec
 });
 
 test('normalizes a supplied exit date while leaving legacy records without one unchanged', () => {
-  const base = { id: 'trade-1', date: '2026-09-13', entryTime: '09:30', exitTime: '10:45', stopLossPoints: '12.50', riskReward: '2.0', direction: 'short', outcome: 'loss', notes: 'London setup' };
+  const base = { id: 'trade-1', pairId: 'trade-1', date: '2026-09-13', entryTime: '09:30', exitTime: '10:45', stopLossPoints: '12.50', riskReward: '2.0', direction: 'short', outcome: 'loss', notes: 'London setup' };
   assert.deepEqual(normalizeTrade(base), { ...base, stopLossPoints: 12.5, riskReward: 2 });
   assert.deepEqual(normalizeTrade({ ...base, exitDate: '2026-09-15' }), { ...base, exitDate: '2026-09-15', stopLossPoints: 12.5, riskReward: 2 });
 });

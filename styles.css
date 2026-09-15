@@ -257,6 +257,61 @@ caption { padding-bottom: .7rem; text-align: left; color: var(--muted); font-siz
 th, td { padding: .65rem; text-align: left; border-bottom: 1px solid #34416b; white-space: nowrap; }
 th { color: var(--cyan); font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; }
 
+.backtest-tabs {
+  display: flex;
+  gap: .5rem;
+  margin-top: 1rem;
+}
+
+.backtest-tab {
+  padding: .6rem 1.2rem;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  font-family: var(--display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.backtest-tab:hover {
+  color: var(--text);
+  border-color: var(--edge-bright);
+}
+
+.backtest-tab.active {
+  color: #fff;
+  background: linear-gradient(145deg, #202257, #111940);
+  border-color: var(--cyan);
+  box-shadow: 0 0 14px var(--cyan-soft), inset 0 0 0 1px var(--cyan);
+}
+
+.initial-scenario-fieldset {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+  margin-top: .5rem;
+  background: rgb(4 8 27 / 65%);
+  border: 1px dashed var(--edge-bright);
+  border-radius: 4px;
+}
+
+.initial-scenario-fieldset legend {
+  padding: 0 .4rem;
+  color: var(--cyan);
+  font-family: var(--display);
+  font-size: .9rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
 @media (max-width: 850px) {
   main { grid-template-columns: 1fr; }
   .entry-panel { grid-row: auto; }

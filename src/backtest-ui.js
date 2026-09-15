@@ -1,3 +1,18 @@
+export function renderBacktestTabs({
+  activeId = '',
+  containerEl = null
+} = {}) {
+  if (!containerEl) return;
+  const tabs = containerEl.querySelectorAll('[data-backtest]');
+  tabs.forEach((tab) => {
+    const id = tab.dataset?.backtest || tab.getAttribute('data-backtest');
+    const isActive = id === activeId;
+    tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    const baseClass = (tab.className || '').replace(/\bactive\b/g, '').trim();
+    tab.className = `${baseClass} ${isActive ? 'active' : ''}`.trim();
+  });
+}
+
 export function renderBacktestSelect({
   backtests = [],
   activeId = '',
@@ -24,6 +39,7 @@ export function renderBacktestSelect({
 
 export function wireBacktestControls({
   store,
+  containerEl,
   selectEl,
   createBtn,
   renameBtn,
@@ -33,6 +49,19 @@ export function wireBacktestControls({
   confirmFn = (...args) => (globalThis.window || globalThis).confirm(...args),
   alertFn = (...args) => (globalThis.window || globalThis).alert(...args)
 } = {}) {
+  if (containerEl) {
+    const tabs = containerEl.querySelectorAll('[data-backtest]');
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', async () => {
+        const id = tab.dataset?.backtest || tab.getAttribute('data-backtest');
+        if (id && id !== store.getActiveBacktestId()) {
+          await store.selectBacktest(id);
+          await refresh();
+        }
+      });
+    });
+  }
+
   if (selectEl) {
     selectEl.addEventListener('change', async (event) => {
       const selectedId = (event && event.target) ? event.target.value : selectEl.value;
