@@ -1,43 +1,169 @@
 import { normalizeTrade } from './trades.js';
+import { normalizeBacktestsData } from './backtests.js';
 
 const LOCAL_KEY = 'gleb-gold-backtest.local-trades.v1';
+
 export class TradeStore {
   constructor({ storage = localStorage, idFactory = () => crypto.randomUUID(), githubSync = null } = {}) {
-    this.storage = storage; this.idFactory = idFactory; this.githubSync = githubSync; this.mode = null; this.githubTrades = []; this.githubSha = null;
+    this.storage = storage;
+    this.idFactory = idFactory;
+    this.githubSync = githubSync;
+    this.mode = null;
+    this.githubData = null;
+    this.githubSha = null;
   }
-  localTrades() { try { return JSON.parse(this.storage.getItem(LOCAL_KEY) || '[]'); } catch { return []; } }
-  saveLocal(trades) { this.storage.setItem(LOCAL_KEY, JSON.stringify(trades)); }
-  hasGitHubConnection() { return Boolean(this.githubSync?.connection); }
+
+  localData() {
+    try {
+      const raw = JSON.parse(this.storage.getItem(LOCAL_KEY));
+      return normalizeBacktestsData(raw, this.idFactory);
+    } catch {
+      return normalizeBacktestsData(null, this.idFactory);
+    }
+  }
+
+  saveLocal(data) {
+    this.storage.setItem(LOCAL_KEY, JSON.stringify(data));
+  }
+
+  hasGitHubConnection() {
+    return Boolean(this.githubSync?.connection);
+  }
+
   connectionDetails() {
     const connection = this.githubSync?.connection;
     return connection ? { owner: connection.owner, repo: connection.repo } : null;
   }
-  connectGitHub(connection) { if (!this.githubSync) throw new Error('GitHub sync is unavailable.'); this.githubSync.connect(connection); this.githubTrades = []; this.githubSha = null; }
+
+  connectGitHub(connection) {
+    if (!this.githubSync) throw new Error('GitHub sync is unavailable.');
+    this.githubSync.connect(connection);
+    this.githubData = null;
+    this.githubSha = null;
+  }
+
   async list() {
+    let data;
     if (this.hasGitHubConnection()) {
-      const { trades, sha } = await this.githubSync.load();
-      this.githubTrades = trades; this.githubSha = sha; this.mode = 'github';
-      return { source: 'github', trades };
+      const { trades: raw, sha } = await this.githubSync.load();
+      data = normalizeBacktestsData(raw, this.idFactory);
+      this.githubData = data;
+      this.githubSha = sha;
+      this.mode = 'github';
+    } else {
+      data = this.localData();
+      this.mode = 'local';
     }
-    this.mode = 'local'; return { source: 'local', trades: this.localTrades() };
+
+    const activeBacktest = data.backtests.find((b) => b.id === data.activeId) || data.backtests[0];
+    return {
+      source: this.mode,
+      trades: activeBacktest ? activeBacktest.trades : [],
+      backtests: data.backtests,
+      activeId: data.activeId
+    };
   }
-  async saveGitHub(trades) {
-    if (!this.githubSha) await this.list();
-    const saved = await this.githubSync.save(trades, this.githubSha);
-    this.githubTrades = trades; this.githubSha = saved.sha; this.mode = 'github';
+
+  getData() {
+    if (this.hasGitHubConnection() && this.githubData) {
+      return this.githubData;
+    }
+    return this.localData();
   }
+
+  async saveData(data) {
+    if (this.hasGitHubConnection()) {
+      if (!this.githubSha) await this.list();
+      const saved = await this.githubSync.save(data, this.githubSha);
+      this.githubData = data;
+      this.githubSha = saved.sha;
+      this.mode = 'github';
+    } else {
+      this.saveLocal(data);
+      this.mode = 'local';
+    }
+  }
+
+  listBacktests() {
+    const data = this.getData();
+    return data.backtests;
+  }
+
+  getActiveBacktestId() {
+    const data = this.getData();
+    return data.activeId;
+  }
+
+  async selectBacktest(id) {
+    const data = this.getData();
+    const exists = data.backtests.some((b) => b.id === id);
+    if (!exists) throw new Error(`Backtest with id "${id}" does not exist.`);
+    data.activeId = id;
+    await this.saveData(data);
+    return data;
+  }
+
+  async createBacktest(name) {
+    const data = this.getData();
+    const newId = this.idFactory();
+    const newBacktest = {
+      id: newId,
+      name: name || 'New Backtest',
+      trades: []
+    };
+    data.backtests.push(newBacktest);
+    data.activeId = newId;
+    await this.saveData(data);
+    return newBacktest;
+  }
+
+  async renameBacktest(id, name) {
+    const data = this.getData();
+    const target = data.backtests.find((b) => b.id === id);
+    if (!target) throw new Error(`Backtest with id "${id}" does not exist.`);
+    target.name = name;
+    await this.saveData(data);
+    return target;
+  }
+
+  async deleteBacktest(id) {
+    const data = this.getData();
+    if (data.backtests.length <= 1) {
+      throw new Error('Cannot delete the only remaining backtest.');
+    }
+    const index = data.backtests.findIndex((b) => b.id === id);
+    if (index === -1) throw new Error(`Backtest with id "${id}" does not exist.`);
+    data.backtests.splice(index, 1);
+    if (data.activeId === id) {
+      data.activeId = data.backtests[0].id;
+    }
+    await this.saveData(data);
+    return data;
+  }
+
   async create(input) {
     const trade = normalizeTrade({ ...input, id: this.idFactory() });
-    if (this.hasGitHubConnection()) { await this.saveGitHub([...this.githubTrades, trade]); return { source: 'github', trade }; }
-    const trades = [...this.localTrades(), trade]; this.saveLocal(trades); this.mode = 'local'; return { source: 'local', trade };
+    const data = this.getData();
+    const active = data.backtests.find((b) => b.id === data.activeId) || data.backtests[0];
+    active.trades.push(trade);
+    await this.saveData(data);
+    return { source: this.mode, trade };
   }
+
   async update(id, input) {
     const trade = normalizeTrade({ ...input, id });
-    if (this.hasGitHubConnection()) { await this.saveGitHub(this.githubTrades.map((item) => item.id === id ? trade : item)); return { source: 'github', trade }; }
-    const trades = this.localTrades().map((item) => item.id === id ? trade : item); this.saveLocal(trades); this.mode = 'local'; return { source: 'local', trade };
+    const data = this.getData();
+    const active = data.backtests.find((b) => b.id === data.activeId) || data.backtests[0];
+    active.trades = active.trades.map((item) => (item.id === id ? trade : item));
+    await this.saveData(data);
+    return { source: this.mode, trade };
   }
+
   async remove(id) {
-    if (this.hasGitHubConnection()) { await this.saveGitHub(this.githubTrades.filter((item) => item.id !== id)); return { source: 'github' }; }
-    this.saveLocal(this.localTrades().filter((item) => item.id !== id)); this.mode = 'local'; return { source: 'local' };
+    const data = this.getData();
+    const active = data.backtests.find((b) => b.id === data.activeId) || data.backtests[0];
+    active.trades = active.trades.filter((item) => item.id !== id);
+    await this.saveData(data);
+    return { source: this.mode };
   }
 }
