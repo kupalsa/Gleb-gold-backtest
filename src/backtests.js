@@ -1,9 +1,11 @@
 import { normalizeTrade } from './trades.js';
 
 export const VOL2_BACKTEST_ID = 'vol-2';
-export const VOL2_BACKTEST_NAME = 'Gold Backtest Vol. 2';
+export const VOL2_BACKTEST_NAME = 'Gold Backtest Vol. 2 (Asian)';
+export const VOL2_NY_BACKTEST_ID = 'vol-2-ny';
+export const VOL2_NY_BACKTEST_NAME = 'Gold Backtest Vol. 2 (New York Time)';
 export const VOL1_BACKTEST_ID = 'vol-1';
-export const VOL1_BACKTEST_NAME = 'Gold Backtest Vol. 1';
+export const VOL1_BACKTEST_NAME = 'Gold Backtest Vol. 1 (Asian)';
 
 export const MOVED_TP_BACKTEST_ID = 'moved-tp';
 export const MOVED_TP_BACKTEST_NAME = 'Moved TP';
@@ -12,6 +14,17 @@ export const NOT_MOVED_TP_BACKTEST_NAME = 'Not Moved TP';
 
 export const DEFAULT_BACKTEST_ID = VOL2_BACKTEST_ID;
 export const DEFAULT_BACKTEST_NAME = VOL2_BACKTEST_NAME;
+
+export function isVol2Suite(id) {
+  return id === VOL2_BACKTEST_ID || id === VOL2_NY_BACKTEST_ID;
+}
+
+function createVol2SubBacktests(movedTrades = [], notMovedTrades = []) {
+  return [
+    { id: MOVED_TP_BACKTEST_ID, name: MOVED_TP_BACKTEST_NAME, trades: movedTrades },
+    { id: NOT_MOVED_TP_BACKTEST_ID, name: NOT_MOVED_TP_BACKTEST_NAME, trades: notMovedTrades }
+  ];
+}
 
 export function normalizeBacktestsData(raw, idFactory = () => crypto.randomUUID()) {
   let activeId = VOL2_BACKTEST_ID;
@@ -25,10 +38,13 @@ export function normalizeBacktestsData(raw, idFactory = () => crypto.randomUUID(
           id: VOL2_BACKTEST_ID,
           name: VOL2_BACKTEST_NAME,
           activeTabId: MOVED_TP_BACKTEST_ID,
-          subBacktests: [
-            { id: MOVED_TP_BACKTEST_ID, name: MOVED_TP_BACKTEST_NAME, trades: [] },
-            { id: NOT_MOVED_TP_BACKTEST_ID, name: NOT_MOVED_TP_BACKTEST_NAME, trades: [] }
-          ]
+          subBacktests: createVol2SubBacktests()
+        },
+        {
+          id: VOL2_NY_BACKTEST_ID,
+          name: VOL2_NY_BACKTEST_NAME,
+          activeTabId: MOVED_TP_BACKTEST_ID,
+          subBacktests: createVol2SubBacktests()
         },
         {
           id: VOL1_BACKTEST_ID,
@@ -68,10 +84,13 @@ export function normalizeBacktestsData(raw, idFactory = () => crypto.randomUUID(
           id: VOL2_BACKTEST_ID,
           name: VOL2_BACKTEST_NAME,
           activeTabId: MOVED_TP_BACKTEST_ID,
-          subBacktests: [
-            { id: MOVED_TP_BACKTEST_ID, name: MOVED_TP_BACKTEST_NAME, trades: movedTrades },
-            { id: NOT_MOVED_TP_BACKTEST_ID, name: NOT_MOVED_TP_BACKTEST_NAME, trades: notMovedTrades }
-          ]
+          subBacktests: createVol2SubBacktests(movedTrades, notMovedTrades)
+        },
+        {
+          id: VOL2_NY_BACKTEST_ID,
+          name: VOL2_NY_BACKTEST_NAME,
+          activeTabId: MOVED_TP_BACKTEST_ID,
+          subBacktests: createVol2SubBacktests()
         },
         {
           id: VOL1_BACKTEST_ID,
@@ -116,10 +135,27 @@ export function normalizeBacktestsData(raw, idFactory = () => crypto.randomUUID(
       id: VOL2_BACKTEST_ID,
       name: VOL2_BACKTEST_NAME,
       activeTabId,
-      subBacktests: [
-        { id: MOVED_TP_BACKTEST_ID, name: MOVED_TP_BACKTEST_NAME, trades: movedTrades },
-        { id: NOT_MOVED_TP_BACKTEST_ID, name: NOT_MOVED_TP_BACKTEST_NAME, trades: notMovedTrades }
-      ]
+      subBacktests: createVol2SubBacktests(movedTrades, notMovedTrades)
+    };
+
+    let vol2NyRaw = rawBacktests.find((b) => b.id === VOL2_NY_BACKTEST_ID);
+    let nyMovedTrades = [];
+    let nyNotMovedTrades = [];
+    let nyActiveTabId = MOVED_TP_BACKTEST_ID;
+
+    if (vol2NyRaw && Array.isArray(vol2NyRaw.subBacktests)) {
+      nyActiveTabId = vol2NyRaw.activeTabId || MOVED_TP_BACKTEST_ID;
+      const mBt = vol2NyRaw.subBacktests.find((s) => s.id === MOVED_TP_BACKTEST_ID);
+      const nmBt = vol2NyRaw.subBacktests.find((s) => s.id === NOT_MOVED_TP_BACKTEST_ID);
+      if (mBt) nyMovedTrades = (mBt.trades || []).map((t) => normalizeTrade({ ...t, pairId: t.pairId || t.id || idFactory() }));
+      if (nmBt) nyNotMovedTrades = (nmBt.trades || []).map((t) => normalizeTrade({ ...t, pairId: t.pairId || t.id || idFactory() }));
+    }
+
+    const vol2Ny = {
+      id: VOL2_NY_BACKTEST_ID,
+      name: VOL2_NY_BACKTEST_NAME,
+      activeTabId: nyActiveTabId,
+      subBacktests: createVol2SubBacktests(nyMovedTrades, nyNotMovedTrades)
     };
 
     let vol1Raw = rawBacktests.find((b) => b.id === VOL1_BACKTEST_ID);
@@ -137,7 +173,7 @@ export function normalizeBacktestsData(raw, idFactory = () => crypto.randomUUID(
     };
 
     const customBacktests = rawBacktests
-      .filter((b) => b.id !== VOL2_BACKTEST_ID && b.id !== VOL1_BACKTEST_ID && b.id !== MOVED_TP_BACKTEST_ID && b.id !== NOT_MOVED_TP_BACKTEST_ID)
+      .filter((b) => b.id !== VOL2_BACKTEST_ID && b.id !== VOL2_NY_BACKTEST_ID && b.id !== VOL1_BACKTEST_ID && b.id !== MOVED_TP_BACKTEST_ID && b.id !== NOT_MOVED_TP_BACKTEST_ID)
       .map((b) => ({
         id: b.id,
         name: b.name || 'Custom Backtest',
@@ -146,7 +182,7 @@ export function normalizeBacktestsData(raw, idFactory = () => crypto.randomUUID(
 
     return {
       activeId,
-      backtests: [vol2, vol1, ...customBacktests]
+      backtests: [vol2, vol2Ny, vol1, ...customBacktests]
     };
   }
 
@@ -157,10 +193,13 @@ export function normalizeBacktestsData(raw, idFactory = () => crypto.randomUUID(
         id: VOL2_BACKTEST_ID,
         name: VOL2_BACKTEST_NAME,
         activeTabId: MOVED_TP_BACKTEST_ID,
-        subBacktests: [
-          { id: MOVED_TP_BACKTEST_ID, name: MOVED_TP_BACKTEST_NAME, trades: [] },
-          { id: NOT_MOVED_TP_BACKTEST_ID, name: NOT_MOVED_TP_BACKTEST_NAME, trades: [] }
-        ]
+        subBacktests: createVol2SubBacktests()
+      },
+      {
+        id: VOL2_NY_BACKTEST_ID,
+        name: VOL2_NY_BACKTEST_NAME,
+        activeTabId: MOVED_TP_BACKTEST_ID,
+        subBacktests: createVol2SubBacktests()
       },
       {
         id: VOL1_BACKTEST_ID,

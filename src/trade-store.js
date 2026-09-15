@@ -1,7 +1,9 @@
 import { normalizeTrade } from './trades.js';
 import {
   normalizeBacktestsData,
+  isVol2Suite,
   VOL2_BACKTEST_ID,
+  VOL2_NY_BACKTEST_ID,
   VOL1_BACKTEST_ID,
   MOVED_TP_BACKTEST_ID,
   NOT_MOVED_TP_BACKTEST_ID
@@ -70,7 +72,7 @@ export class TradeStore {
     let activeTabId = MOVED_TP_BACKTEST_ID;
 
     if (activeBacktest) {
-      if (activeBacktest.id === VOL2_BACKTEST_ID) {
+      if (isVol2Suite(activeBacktest.id)) {
         activeTabId = activeBacktest.activeTabId || MOVED_TP_BACKTEST_ID;
         const subBt = (activeBacktest.subBacktests || []).find((s) => s.id === activeTabId) || activeBacktest.subBacktests?.[0];
         activeTrades = subBt ? subBt.trades : [];
@@ -121,9 +123,12 @@ export class TradeStore {
   async selectBacktest(id) {
     const data = this.getData();
     if (id === MOVED_TP_BACKTEST_ID || id === NOT_MOVED_TP_BACKTEST_ID) {
-      const vol2 = data.backtests.find((b) => b.id === VOL2_BACKTEST_ID);
-      if (vol2) vol2.activeTabId = id;
-      data.activeId = VOL2_BACKTEST_ID;
+      let activeBt = data.backtests.find((b) => b.id === data.activeId);
+      if (!activeBt || !isVol2Suite(activeBt.id)) {
+        data.activeId = VOL2_BACKTEST_ID;
+        activeBt = data.backtests.find((b) => b.id === VOL2_BACKTEST_ID);
+      }
+      if (activeBt) activeBt.activeTabId = id;
       this.saveLocal(data);
       if (this.githubData) this.githubData = data;
       return data;
@@ -179,7 +184,7 @@ export class TradeStore {
     const data = this.getData();
     const activeBt = data.backtests.find((b) => b.id === data.activeId) || data.backtests[0];
 
-    if (activeBt.id === VOL2_BACKTEST_ID) {
+    if (isVol2Suite(activeBt.id)) {
       const pairId = input.pairId || input.id || this.idFactory();
       const movedBt = activeBt.subBacktests.find((b) => b.id === MOVED_TP_BACKTEST_ID) || activeBt.subBacktests[0];
       const notMovedBt = activeBt.subBacktests.find((b) => b.id === NOT_MOVED_TP_BACKTEST_ID) || activeBt.subBacktests[1];
@@ -229,7 +234,7 @@ export class TradeStore {
     const data = this.getData();
     const activeBt = data.backtests.find((b) => b.id === data.activeId) || data.backtests[0];
 
-    if (activeBt.id === VOL2_BACKTEST_ID) {
+    if (isVol2Suite(activeBt.id)) {
       const pairId = id;
       const isMovedYes = input.movedTakeProfit === 'yes';
 
@@ -279,7 +284,7 @@ export class TradeStore {
     const data = this.getData();
     const activeBt = data.backtests.find((b) => b.id === data.activeId) || data.backtests[0];
 
-    if (activeBt.id === VOL2_BACKTEST_ID) {
+    if (isVol2Suite(activeBt.id)) {
       activeBt.subBacktests.forEach((b) => {
         b.trades = b.trades.filter((item) => item.pairId !== id && item.id !== id);
       });

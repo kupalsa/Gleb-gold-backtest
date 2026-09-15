@@ -1,4 +1,4 @@
-import { VOL2_BACKTEST_ID, MOVED_TP_BACKTEST_ID } from './backtests.js';
+import { VOL2_BACKTEST_ID, MOVED_TP_BACKTEST_ID, isVol2Suite } from './backtests.js';
 
 export function renderBacktestTabs({
   activeId = VOL2_BACKTEST_ID,
@@ -7,7 +7,7 @@ export function renderBacktestTabs({
 } = {}) {
   if (!containerEl) return;
 
-  const isVol2 = activeId === VOL2_BACKTEST_ID;
+  const isVol2 = isVol2Suite(activeId);
   containerEl.hidden = !isVol2;
 
   const currentTabId = isVol2 ? (activeTabId || MOVED_TP_BACKTEST_ID) : activeId;

@@ -6,7 +6,7 @@ import { calendarCells, shiftMonth } from './calendar.js';
 import { dataStatus, showTradeFailure, showTradeSuccess } from './feedback.js';
 import { syncTakeProfitMoveFields } from './take-profit-move.js';
 import { renderBacktestSelect, renderBacktestTabs, wireBacktestControls } from './backtest-ui.js';
-import { VOL2_BACKTEST_ID } from './backtests.js';
+import { isVol2Suite } from './backtests.js';
 
 const $ = (selector) => document.querySelector(selector);
 const form = $('#trade-form');
@@ -197,7 +197,7 @@ async function refresh() {
     deleteBtn: $('#delete-backtest')
   });
 
-  const isVol2 = activeId === VOL2_BACKTEST_ID;
+  const isVol2 = isVol2Suite(activeId);
   const movedContainer = $('#movedTakeProfit')?.parentElement;
   if (movedContainer) {
     movedContainer.hidden = !isVol2;
