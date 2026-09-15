@@ -176,18 +176,12 @@ function startEdit(trade) {
   $('#trade-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-let isInitialRefresh = true;
-
 async function refresh(options = {}) {
-  const isInitial = options.isInitial ?? isInitialRefresh;
   const result = await store.list();
   state.trades = result.trades;
   setStatus(result.source);
 
-  if (isInitial) {
-    isInitialRefresh = false;
-    state.month = getLatestTradeMonth(state.trades);
-  }
+  state.month = getLatestTradeMonth(state.trades, store.listBacktests());
 
   const activeId = store.getActiveBacktestId();
   const activeTabId = result.activeTabId;

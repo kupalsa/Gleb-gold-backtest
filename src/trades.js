@@ -109,18 +109,47 @@ export function groupTradesByDate(trades) {
   }, {});
 }
 
-export function getLatestTradeMonth(trades, fallbackMonth = new Date().toISOString().slice(0, 7)) {
-  if (!Array.isArray(trades) || trades.length === 0) {
-    return fallbackMonth;
+export function getLatestTradeMonth(trades, backtests = [], fallbackMonth = new Date().toISOString().slice(0, 7)) {
+  if (typeof backtests === 'string') {
+    fallbackMonth = backtests;
+    backtests = [];
   }
-  let maxDate = null;
-  for (const trade of trades) {
-    if (trade && trade.date) {
-      if (!maxDate || trade.date > maxDate) {
-        maxDate = trade.date;
+
+  const getMaxDate = (list) => {
+    if (!Array.isArray(list) || list.length === 0) return null;
+    let max = null;
+    for (const t of list) {
+      if (t && t.date) {
+        if (!max || t.date > max) {
+          max = t.date;
+        }
+      }
+    }
+    return max;
+  };
+
+  let maxDate = getMaxDate(trades);
+  if (maxDate) return maxDate.slice(0, 7);
+
+  if (Array.isArray(backtests)) {
+    for (const b of backtests) {
+      if (!b) continue;
+      const bMax = getMaxDate(b.trades);
+      if (bMax && (!maxDate || bMax > maxDate)) {
+        maxDate = bMax;
+      }
+      if (Array.isArray(b.subBacktests)) {
+        for (const sb of b.subBacktests) {
+          if (!sb) continue;
+          const sbMax = getMaxDate(sb.trades);
+          if (sbMax && (!maxDate || sbMax > maxDate)) {
+            maxDate = sbMax;
+          }
+        }
       }
     }
   }
-  if (!maxDate) return fallbackMonth;
-  return maxDate.slice(0, 7);
+
+  if (maxDate) return maxDate.slice(0, 7);
+  return fallbackMonth;
 }
