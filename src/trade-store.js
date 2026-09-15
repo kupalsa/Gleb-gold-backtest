@@ -2,6 +2,7 @@ import { normalizeTrade } from './trades.js';
 import {
   normalizeBacktestsData,
   isVol2Suite,
+  getVol2TargetSuiteId,
   VOL2_BACKTEST_ID,
   VOL2_NY_BACKTEST_ID,
   VOL1_BACKTEST_ID,
@@ -184,34 +185,35 @@ export class TradeStore {
     const data = this.getData();
     const activeBt = data.backtests.find((b) => b.id === data.activeId) || data.backtests[0];
 
-    const existingTrades = isVol2Suite(activeBt.id)
-      ? (activeBt.subBacktests || []).flatMap((s) => s.trades || [])
-      : (activeBt.trades || []);
-
-    const candidate = normalizeTrade(input);
-
-    const isDuplicate = existingTrades.some((t) => {
-      const norm = normalizeTrade(t);
-      return (
-        norm.date === candidate.date &&
-        norm.entryTime === candidate.entryTime &&
-        norm.direction === candidate.direction &&
-        norm.stopLossPoints === candidate.stopLossPoints &&
-        norm.notes === candidate.notes &&
-        norm.exitTime === candidate.exitTime &&
-        norm.outcome === candidate.outcome &&
-        norm.riskReward === candidate.riskReward
-      );
-    });
-
-    if (isDuplicate) {
-      throw new Error('Duplicate trade detected. This trade has already been saved.');
-    }
-
     if (isVol2Suite(activeBt.id)) {
+      const targetSuiteId = getVol2TargetSuiteId(input.entryTime);
+      const targetBt = data.backtests.find((b) => b.id === targetSuiteId) || activeBt;
+
+      const existingTrades = (targetBt.subBacktests || []).flatMap((s) => s.trades || []);
+
+      const candidate = normalizeTrade(input);
+
+      const isDuplicate = existingTrades.some((t) => {
+        const norm = normalizeTrade(t);
+        return (
+          norm.date === candidate.date &&
+          norm.entryTime === candidate.entryTime &&
+          norm.direction === candidate.direction &&
+          norm.stopLossPoints === candidate.stopLossPoints &&
+          norm.notes === candidate.notes &&
+          norm.exitTime === candidate.exitTime &&
+          norm.outcome === candidate.outcome &&
+          norm.riskReward === candidate.riskReward
+        );
+      });
+
+      if (isDuplicate) {
+        throw new Error('Duplicate trade detected. This trade has already been saved.');
+      }
+
       const pairId = input.pairId || input.id || this.idFactory();
-      const movedBt = activeBt.subBacktests.find((b) => b.id === MOVED_TP_BACKTEST_ID) || activeBt.subBacktests[0];
-      const notMovedBt = activeBt.subBacktests.find((b) => b.id === NOT_MOVED_TP_BACKTEST_ID) || activeBt.subBacktests[1];
+      const movedBt = targetBt.subBacktests.find((b) => b.id === MOVED_TP_BACKTEST_ID) || targetBt.subBacktests[0];
+      const notMovedBt = targetBt.subBacktests.find((b) => b.id === NOT_MOVED_TP_BACKTEST_ID) || targetBt.subBacktests[1];
 
       const movedTrade = normalizeTrade({
         ...input,
@@ -239,11 +241,34 @@ export class TradeStore {
         notMovedBt.trades.push(notMovedTrade);
       }
 
+      data.activeId = targetSuiteId;
+
       await this.saveData(data);
-      const activeSubTabId = activeBt.activeTabId || MOVED_TP_BACKTEST_ID;
+      const activeSubTabId = targetBt.activeTabId || MOVED_TP_BACKTEST_ID;
       const activeTrade = activeSubTabId === NOT_MOVED_TP_BACKTEST_ID ? notMovedTrade : movedTrade;
       return { source: this.mode, trade: activeTrade };
     } else {
+      const existingTrades = activeBt.trades || [];
+      const candidate = normalizeTrade(input);
+
+      const isDuplicate = existingTrades.some((t) => {
+        const norm = normalizeTrade(t);
+        return (
+          norm.date === candidate.date &&
+          norm.entryTime === candidate.entryTime &&
+          norm.direction === candidate.direction &&
+          norm.stopLossPoints === candidate.stopLossPoints &&
+          norm.notes === candidate.notes &&
+          norm.exitTime === candidate.exitTime &&
+          norm.outcome === candidate.outcome &&
+          norm.riskReward === candidate.riskReward
+        );
+      });
+
+      if (isDuplicate) {
+        throw new Error('Duplicate trade detected. This trade has already been saved.');
+      }
+
       const id = input.id || this.idFactory();
       const trade = normalizeTrade({ ...input, id });
       if (!Array.isArray(activeBt.trades)) activeBt.trades = [];

@@ -1,7 +1,7 @@
 import { TradeStore } from './trade-store.js';
 import { GitHubTradeSync } from './github-sync.js';
 import { wireDataConnection } from './data-connection.js';
-import { validateTrade, groupTradesByDate, tradesForDate, durationInMinutes, riskRewardTotal, tradeStats } from './trades.js';
+import { validateTrade, groupTradesByDate, tradesForDate, durationInMinutes, riskRewardTotal, tradeStats, getLatestTradeMonth } from './trades.js';
 import { calendarCells, shiftMonth } from './calendar.js';
 import { dataStatus, showTradeFailure, showTradeSuccess } from './feedback.js';
 import { syncTakeProfitMoveFields } from './take-profit-move.js';
@@ -176,10 +176,18 @@ function startEdit(trade) {
   $('#trade-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-async function refresh() {
+let isInitialRefresh = true;
+
+async function refresh(options = {}) {
+  const isInitial = options.isInitial ?? isInitialRefresh;
   const result = await store.list();
   state.trades = result.trades;
   setStatus(result.source);
+
+  if (isInitial) {
+    isInitialRefresh = false;
+    state.month = getLatestTradeMonth(state.trades);
+  }
 
   const activeId = store.getActiveBacktestId();
   const activeTabId = result.activeTabId;

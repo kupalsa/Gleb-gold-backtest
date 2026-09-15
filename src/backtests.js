@@ -19,6 +19,14 @@ export function isVol2Suite(id) {
   return id === VOL2_BACKTEST_ID || id === VOL2_NY_BACKTEST_ID;
 }
 
+export function getVol2TargetSuiteId(entryTime) {
+  const hour = parseInt(String(entryTime || '').split(':')[0], 10);
+  if (isNaN(hour) || hour < 0 || hour > 23) {
+    return VOL2_BACKTEST_ID;
+  }
+  return hour < 12 ? VOL2_BACKTEST_ID : VOL2_NY_BACKTEST_ID;
+}
+
 function createVol2SubBacktests(movedTrades = [], notMovedTrades = []) {
   return [
     { id: MOVED_TP_BACKTEST_ID, name: MOVED_TP_BACKTEST_NAME, trades: movedTrades },

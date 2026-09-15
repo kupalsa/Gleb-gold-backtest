@@ -108,3 +108,19 @@ export function groupTradesByDate(trades) {
     return groups;
   }, {});
 }
+
+export function getLatestTradeMonth(trades, fallbackMonth = new Date().toISOString().slice(0, 7)) {
+  if (!Array.isArray(trades) || trades.length === 0) {
+    return fallbackMonth;
+  }
+  let maxDate = null;
+  for (const trade of trades) {
+    if (trade && trade.date) {
+      if (!maxDate || trade.date > maxDate) {
+        maxDate = trade.date;
+      }
+    }
+  }
+  if (!maxDate) return fallbackMonth;
+  return maxDate.slice(0, 7);
+}
