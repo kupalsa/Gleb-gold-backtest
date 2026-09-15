@@ -184,6 +184,30 @@ export class TradeStore {
     const data = this.getData();
     const activeBt = data.backtests.find((b) => b.id === data.activeId) || data.backtests[0];
 
+    const existingTrades = isVol2Suite(activeBt.id)
+      ? (activeBt.subBacktests || []).flatMap((s) => s.trades || [])
+      : (activeBt.trades || []);
+
+    const candidate = normalizeTrade(input);
+
+    const isDuplicate = existingTrades.some((t) => {
+      const norm = normalizeTrade(t);
+      return (
+        norm.date === candidate.date &&
+        norm.entryTime === candidate.entryTime &&
+        norm.direction === candidate.direction &&
+        norm.stopLossPoints === candidate.stopLossPoints &&
+        norm.notes === candidate.notes &&
+        norm.exitTime === candidate.exitTime &&
+        norm.outcome === candidate.outcome &&
+        norm.riskReward === candidate.riskReward
+      );
+    });
+
+    if (isDuplicate) {
+      throw new Error('Duplicate trade detected. This trade has already been saved.');
+    }
+
     if (isVol2Suite(activeBt.id)) {
       const pairId = input.pairId || input.id || this.idFactory();
       const movedBt = activeBt.subBacktests.find((b) => b.id === MOVED_TP_BACKTEST_ID) || activeBt.subBacktests[0];

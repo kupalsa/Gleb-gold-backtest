@@ -216,16 +216,28 @@ async function refresh() {
   renderStats();
 }
 
+let isSubmitting = false;
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
-  const input = values();
-  const errors = validateTrade(input);
-  if (Object.keys(errors).length) {
-    $('#form-success').textContent = '';
-    $('#form-error').textContent = Object.values(errors).join(' ');
-    return;
+  if (isSubmitting) return;
+
+  isSubmitting = true;
+  const submitBtn = form.querySelector('button.primary') || form.querySelector('.primary');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
   }
+
   try {
+    const input = values();
+    const errors = validateTrade(input);
+    if (Object.keys(errors).length) {
+      $('#form-success').textContent = '';
+      $('#form-error').textContent = Object.values(errors).join(' ');
+      return;
+    }
+
     const id = $('#trade-id').value;
     const saved = id ? await store.update(id, input) : await store.create(input);
     state.selectedDate = input.date;
@@ -235,6 +247,12 @@ form.addEventListener('submit', async (event) => {
     showTradeSuccess({ formError: $('#form-error'), formSuccess: $('#form-success'), trade: saved.trade, source: saved.source });
   } catch (error) {
     showTradeFailure({ formError: $('#form-error'), formSuccess: $('#form-success'), setStatus, error });
+  } finally {
+    isSubmitting = false;
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = $('#trade-id').value ? 'Update trade' : 'Save trade';
+    }
   }
 });
 
