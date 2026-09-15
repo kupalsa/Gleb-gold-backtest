@@ -18,7 +18,30 @@ const button = () => ({ addEventListener(type, listener) { this[type] = listener
 
 test('connected GitHub store reads, writes full backtest data structure with SHA, keeps token session-only, and sync control refreshes remote state', async () => {
   const session = memoryStorage(); const local = memoryStorage(); const writes = [];
-  let remote = [trade('remote-1')]; let sha = 'sha-1'; let conflict = false;
+  let remote = {
+    activeId: VOL2_BACKTEST_ID,
+    backtests: [
+      {
+        id: VOL2_BACKTEST_ID,
+        name: 'Gold Backtest Vol. 2 (Asian)',
+        activeTabId: 'moved-tp',
+        subBacktests: [
+          { id: 'moved-tp', name: 'Moved TP', trades: [trade('remote-1')] },
+          { id: 'not-moved-tp', name: 'Not Moved TP', trades: [trade('remote-1')] }
+        ]
+      },
+      {
+        id: 'vol-2-ny',
+        name: 'Gold Backtest Vol. 2 (New York Time)',
+        activeTabId: 'moved-tp',
+        subBacktests: [
+          { id: 'moved-tp', name: 'Moved TP', trades: [] },
+          { id: 'not-moved-tp', name: 'Not Moved TP', trades: [] }
+        ]
+      },
+      { id: 'vol-1', name: 'Gold Backtest Vol. 1 (Asian)', trades: [] }
+    ]
+  }; let sha = 'sha-1'; let conflict = false;
   const fetcher = async (_url, options = {}) => {
     if (!options.method) return { ok: true, json: async () => ({ sha, content: btoa(JSON.stringify(remote)) }) };
     const payload = JSON.parse(options.body); writes.push(payload);
@@ -51,7 +74,20 @@ test('connected GitHub store reads, writes full backtest data structure with SHA
   const payload2 = JSON.parse(atob(writes[2].content));
   assert.deepEqual(payload2.backtests[0].subBacktests[0].trades.map(({ id }) => id), ['new-1']);
 
-  remote = [trade('refreshed')]; sha = 'sha-remote';
+  remote = {
+    activeId: VOL2_BACKTEST_ID,
+    backtests: [
+      {
+        id: VOL2_BACKTEST_ID,
+        name: 'Gold Backtest Vol. 2 (Asian)',
+        activeTabId: 'moved-tp',
+        subBacktests: [
+          { id: 'moved-tp', name: 'Moved TP', trades: [trade('refreshed')] },
+          { id: 'not-moved-tp', name: 'Not Moved TP', trades: [trade('refreshed')] }
+        ]
+      }
+    ]
+  }; sha = 'sha-remote';
   const syncButton = button(); let refreshed;
   wireDataConnection({ syncButton, store, refresh: async () => { refreshed = await store.list({ forceFetch: true }); }, setStatus: () => {} });
   await syncButton.click();
@@ -73,10 +109,12 @@ test('GitHub full-array sync loads and preserves negative risk-reward trade fiel
   const store = new TradeStore({ githubSync: sync, storage: local, idFactory: () => 'new-analytics' });
   store.connectGitHub({ owner: 'kupalsa', repo: 'Gleb-gold-backtest-data', token: 'secret-pat', remember: false });
 
+  await store.list();
+  await store.selectBacktest('vol-1');
   assert.deepEqual((await store.list()).trades, [{ ...remote[0], pairId: 'overnight' }]);
   await store.create({ ...trade('ignored', '00:20'), id: undefined, pairId: undefined, exitDate: '2026-09-15', exitTime: '00:30', direction: 'long', outcome: 'win', riskReward: 0, movedTakeProfit: 'yes', takeProfitMoveResult: 'good' });
   const payload = JSON.parse(atob(savedPayload.content));
-  assert.deepEqual(payload.backtests[0].subBacktests[0].trades.map(({ id, entryTime, exitDate, exitTime, direction, outcome, riskReward, movedTakeProfit, takeProfitMoveResult }) => ({ id, entryTime, exitDate, exitTime, direction, outcome, riskReward, movedTakeProfit, takeProfitMoveResult })), [
+  assert.deepEqual(payload.backtests[2].trades.map(({ id, entryTime, exitDate, exitTime, direction, outcome, riskReward, movedTakeProfit, takeProfitMoveResult }) => ({ id, entryTime, exitDate, exitTime, direction, outcome, riskReward, movedTakeProfit, takeProfitMoveResult })), [
     { id: 'overnight', entryTime: '23:50', exitDate: '2026-09-14', exitTime: '00:10', direction: 'short', outcome: 'loss', riskReward: -0.5, movedTakeProfit: 'yes', takeProfitMoveResult: 'wasted' },
     { id: 'new-analytics', entryTime: '00:20', exitDate: '2026-09-15', exitTime: '00:30', direction: 'long', outcome: 'win', riskReward: 0, movedTakeProfit: 'yes', takeProfitMoveResult: 'good' }
   ]);

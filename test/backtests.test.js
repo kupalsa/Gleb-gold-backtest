@@ -68,7 +68,7 @@ test('normalizeBacktestsData produces Vol 2 (Asian), Vol 2 (New York Time), and 
   }
 });
 
-test('normalizeBacktestsData migrates flat trade array into Vol 2 (Asian) paired trades, empty Vol 2 (NY), and Vol 1 (Asian)', () => {
+test('normalizeBacktestsData migrates flat trade array into Vol 1 (Asian) trades while Vol 2 (Asian) and Vol 2 (NY) start blank (0 trades)', () => {
   const flatTrades = [
     { id: 't1', date: '2026-09-13', entryTime: '09:30', exitTime: '10:30', direction: 'long', outcome: 'win', stopLossPoints: 10, riskReward: 2 },
     { id: 't2', date: '2026-09-13', entryTime: '11:00', exitTime: '12:00', direction: 'short', outcome: 'loss', stopLossPoints: 5, riskReward: -1 }
@@ -80,8 +80,8 @@ test('normalizeBacktestsData migrates flat trade array into Vol 2 (Asian) paired
   const vol2Asian = result.backtests.find(b => b.id === VOL2_BACKTEST_ID);
   assert.ok(vol2Asian);
   assert.equal(vol2Asian.name, 'Gold Backtest Vol. 2 (Asian)');
-  assert.equal(vol2Asian.subBacktests[0].trades.length, 2);
-  assert.equal(vol2Asian.subBacktests[1].trades.length, 2);
+  assert.equal(vol2Asian.subBacktests[0].trades.length, 0);
+  assert.equal(vol2Asian.subBacktests[1].trades.length, 0);
 
   const vol2Ny = result.backtests.find(b => b.id === VOL2_NY_BACKTEST_ID);
   assert.ok(vol2Ny);
@@ -95,6 +95,36 @@ test('normalizeBacktestsData migrates flat trade array into Vol 2 (Asian) paired
   assert.equal(vol1Asian.trades.length, 2);
   assert.equal(vol1Asian.trades[0].id, 't1');
   assert.equal(vol1Asian.trades[1].id, 't2');
+});
+
+test('normalizeBacktestsData does not copy vol-1 trades into vol-2 when vol-2 has no trades of its own', () => {
+  const rawObj = {
+    backtests: [
+      {
+        id: VOL1_BACKTEST_ID,
+        name: 'Gold Backtest Vol. 1 (Asian)',
+        trades: [
+          { id: 't1', date: '2026-09-13', entryTime: '09:30', exitTime: '10:30', direction: 'long', outcome: 'win', stopLossPoints: 10, riskReward: 2 }
+        ]
+      }
+    ]
+  };
+  const result = normalizeBacktestsData(rawObj);
+
+  const vol2Asian = result.backtests.find(b => b.id === VOL2_BACKTEST_ID);
+  assert.ok(vol2Asian);
+  assert.equal(vol2Asian.subBacktests[0].trades.length, 0);
+  assert.equal(vol2Asian.subBacktests[1].trades.length, 0);
+
+  const vol2Ny = result.backtests.find(b => b.id === VOL2_NY_BACKTEST_ID);
+  assert.ok(vol2Ny);
+  assert.equal(vol2Ny.subBacktests[0].trades.length, 0);
+  assert.equal(vol2Ny.subBacktests[1].trades.length, 0);
+
+  const vol1Asian = result.backtests.find(b => b.id === VOL1_BACKTEST_ID);
+  assert.ok(vol1Asian);
+  assert.equal(vol1Asian.trades.length, 1);
+  assert.equal(vol1Asian.trades[0].id, 't1');
 });
 
 test('normalizeBacktestsData renames legacy backtests and adds missing Vol 2 NY default suite while preserving 50 trades and custom backtests', () => {

@@ -37,7 +37,11 @@ test('TradeStore lists default backtests Vol 2 (Asian), Vol 2 (NY), and Vol 1 (A
   assert.equal(listResult.backtests[0].name, 'Gold Backtest Vol. 2 (Asian)');
   assert.equal(listResult.backtests[1].name, 'Gold Backtest Vol. 2 (New York Time)');
   assert.equal(listResult.backtests[2].name, 'Gold Backtest Vol. 1 (Asian)');
-  assert.deepEqual(listResult.trades.map(t => t.id), ['t1']);
+  assert.deepEqual(listResult.trades, []);
+
+  await store.selectBacktest(VOL1_BACKTEST_ID);
+  const vol1List = await store.list();
+  assert.deepEqual(vol1List.trades.map(t => t.id), ['t1']);
 
   const backtests = store.listBacktests();
   assert.equal(backtests.length, 3);

@@ -58,24 +58,6 @@ export function normalizeBacktestsData(raw, idFactory = () => crypto.randomUUID(
   // If raw is a flat array of trades
   if (Array.isArray(raw)) {
     const vol1Trades = raw.map((t) => normalizeTrade(t));
-    const movedTrades = [];
-    const notMovedTrades = [];
-
-    raw.forEach((t) => {
-      const pairId = t.pairId || t.id || idFactory();
-      const normMoved = normalizeTrade({ ...t, pairId, id: t.id || pairId });
-      const normNotMoved = normalizeTrade({
-        ...t,
-        pairId,
-        id: t.id || pairId,
-        exitDate: (t.movedTakeProfit === 'yes' && t.initialExitTime) ? (t.initialExitDate || t.exitDate) : t.exitDate,
-        exitTime: (t.movedTakeProfit === 'yes' && t.initialExitTime) ? t.initialExitTime : t.exitTime,
-        outcome: (t.movedTakeProfit === 'yes' && t.initialExitTime) ? t.initialOutcome : t.outcome,
-        riskReward: (t.movedTakeProfit === 'yes' && t.initialExitTime) ? t.initialRiskReward : t.riskReward
-      });
-      movedTrades.push(normMoved);
-      notMovedTrades.push(normNotMoved);
-    });
 
     return {
       activeId: VOL2_BACKTEST_ID,
@@ -84,7 +66,7 @@ export function normalizeBacktestsData(raw, idFactory = () => crypto.randomUUID(
           id: VOL2_BACKTEST_ID,
           name: VOL2_BACKTEST_NAME,
           activeTabId: MOVED_TP_BACKTEST_ID,
-          subBacktests: createVol2SubBacktests(movedTrades, notMovedTrades)
+          subBacktests: createVol2SubBacktests()
         },
         {
           id: VOL2_NY_BACKTEST_ID,
