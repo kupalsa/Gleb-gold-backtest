@@ -6,6 +6,7 @@ import { calendarCells, shiftMonth } from './calendar.js';
 import { dataStatus, showTradeFailure, showTradeSuccess } from './feedback.js';
 import { syncTakeProfitMoveFields } from './take-profit-move.js';
 import { renderBacktestSelect, renderBacktestTabs, wireBacktestControls } from './backtest-ui.js';
+import { VOL2_BACKTEST_ID } from './backtests.js';
 
 const $ = (selector) => document.querySelector(selector);
 const form = $('#trade-form');
@@ -179,16 +180,37 @@ async function refresh() {
   const result = await store.list();
   state.trades = result.trades;
   setStatus(result.source);
+
+  const activeId = store.getActiveBacktestId();
+  const activeTabId = result.activeTabId;
+
   renderBacktestTabs({
-    activeId: store.getActiveBacktestId(),
+    activeId,
+    activeTabId,
     containerEl: $('.backtest-tabs')
   });
+
   renderBacktestSelect({
     backtests: store.listBacktests(),
-    activeId: store.getActiveBacktestId(),
+    activeId,
     selectEl: $('#backtest-select'),
     deleteBtn: $('#delete-backtest')
   });
+
+  const isVol2 = activeId === VOL2_BACKTEST_ID;
+  const movedContainer = $('#movedTakeProfit')?.parentElement;
+  if (movedContainer) {
+    movedContainer.hidden = !isVol2;
+  }
+
+  if (isVol2) {
+    syncTakeProfitMoveForm();
+  } else {
+    if ($('#movedTakeProfit')) $('#movedTakeProfit').value = '';
+    const initialFieldset = $('#initial-scenario-fieldset');
+    if (initialFieldset) initialFieldset.hidden = true;
+  }
+
   renderCalendar();
   renderDay();
   renderStats();

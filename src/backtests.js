@@ -1,30 +1,50 @@
 import { normalizeTrade } from './trades.js';
 
+export const VOL2_BACKTEST_ID = 'vol-2';
+export const VOL2_BACKTEST_NAME = 'Gold Backtest Vol. 2';
+export const VOL1_BACKTEST_ID = 'vol-1';
+export const VOL1_BACKTEST_NAME = 'Gold Backtest Vol. 1';
+
 export const MOVED_TP_BACKTEST_ID = 'moved-tp';
 export const MOVED_TP_BACKTEST_NAME = 'Moved TP';
 export const NOT_MOVED_TP_BACKTEST_ID = 'not-moved-tp';
 export const NOT_MOVED_TP_BACKTEST_NAME = 'Not Moved TP';
 
-export const DEFAULT_BACKTEST_ID = MOVED_TP_BACKTEST_ID;
-export const DEFAULT_BACKTEST_NAME = MOVED_TP_BACKTEST_NAME;
+export const DEFAULT_BACKTEST_ID = VOL2_BACKTEST_ID;
+export const DEFAULT_BACKTEST_NAME = VOL2_BACKTEST_NAME;
 
 export function normalizeBacktestsData(raw, idFactory = () => crypto.randomUUID()) {
-  let activeId = MOVED_TP_BACKTEST_ID;
-  let movedTrades = [];
-  let notMovedTrades = [];
+  let activeId = VOL2_BACKTEST_ID;
+  let activeTabId = MOVED_TP_BACKTEST_ID;
 
   if (!raw) {
     return {
-      activeId: MOVED_TP_BACKTEST_ID,
+      activeId: VOL2_BACKTEST_ID,
       backtests: [
-        { id: MOVED_TP_BACKTEST_ID, name: MOVED_TP_BACKTEST_NAME, trades: [] },
-        { id: NOT_MOVED_TP_BACKTEST_ID, name: NOT_MOVED_TP_BACKTEST_NAME, trades: [] }
+        {
+          id: VOL2_BACKTEST_ID,
+          name: VOL2_BACKTEST_NAME,
+          activeTabId: MOVED_TP_BACKTEST_ID,
+          subBacktests: [
+            { id: MOVED_TP_BACKTEST_ID, name: MOVED_TP_BACKTEST_NAME, trades: [] },
+            { id: NOT_MOVED_TP_BACKTEST_ID, name: NOT_MOVED_TP_BACKTEST_NAME, trades: [] }
+          ]
+        },
+        {
+          id: VOL1_BACKTEST_ID,
+          name: VOL1_BACKTEST_NAME,
+          trades: []
+        }
       ]
     };
   }
 
   // If raw is a flat array of trades
   if (Array.isArray(raw)) {
+    const vol1Trades = raw.map((t) => normalizeTrade(t));
+    const movedTrades = [];
+    const notMovedTrades = [];
+
     raw.forEach((t) => {
       const pairId = t.pairId || t.id || idFactory();
       const normMoved = normalizeTrade({ ...t, pairId, id: t.id || pairId });
@@ -40,55 +60,113 @@ export function normalizeBacktestsData(raw, idFactory = () => crypto.randomUUID(
       movedTrades.push(normMoved);
       notMovedTrades.push(normNotMoved);
     });
-  } else if (typeof raw === 'object' && raw !== null) {
-    if (raw.activeId === NOT_MOVED_TP_BACKTEST_ID) {
-      activeId = NOT_MOVED_TP_BACKTEST_ID;
-    }
 
-    const backtests = Array.isArray(raw.backtests) ? raw.backtests : [];
-    const movedBt = backtests.find((b) => b.id === MOVED_TP_BACKTEST_ID);
-    const notMovedBt = backtests.find((b) => b.id === NOT_MOVED_TP_BACKTEST_ID);
-
-    if (movedBt && notMovedBt) {
-      movedTrades = (movedBt.trades || []).map((t) => normalizeTrade({ ...t, pairId: t.pairId || t.id || idFactory() }));
-      notMovedTrades = (notMovedBt.trades || []).map((t) => normalizeTrade({ ...t, pairId: t.pairId || t.id || idFactory() }));
-    } else {
-      // Migrate trades from legacy backtest array (e.g. 'default' or custom)
-      const allTradesMap = new Map();
-      backtests.forEach((b) => {
-        if (Array.isArray(b.trades)) {
-          b.trades.forEach((t) => {
-            const key = t.pairId || t.id || `${t.date}-${t.entryTime}-${t.notes}`;
-            if (!allTradesMap.has(key)) {
-              allTradesMap.set(key, t);
-            }
-          });
+    return {
+      activeId: VOL2_BACKTEST_ID,
+      backtests: [
+        {
+          id: VOL2_BACKTEST_ID,
+          name: VOL2_BACKTEST_NAME,
+          activeTabId: MOVED_TP_BACKTEST_ID,
+          subBacktests: [
+            { id: MOVED_TP_BACKTEST_ID, name: MOVED_TP_BACKTEST_NAME, trades: movedTrades },
+            { id: NOT_MOVED_TP_BACKTEST_ID, name: NOT_MOVED_TP_BACKTEST_NAME, trades: notMovedTrades }
+          ]
+        },
+        {
+          id: VOL1_BACKTEST_ID,
+          name: VOL1_BACKTEST_NAME,
+          trades: vol1Trades
         }
-      });
+      ]
+    };
+  }
 
-      allTradesMap.forEach((t) => {
-        const pairId = t.pairId || t.id || idFactory();
-        const normMoved = normalizeTrade({ ...t, pairId, id: t.id || pairId });
-        const normNotMoved = normalizeTrade({
-          ...t,
-          pairId,
-          id: t.id || pairId,
-          exitDate: (t.movedTakeProfit === 'yes' && t.initialExitTime) ? (t.initialExitDate || t.exitDate) : t.exitDate,
-          exitTime: (t.movedTakeProfit === 'yes' && t.initialExitTime) ? t.initialExitTime : t.exitTime,
-          outcome: (t.movedTakeProfit === 'yes' && t.initialExitTime) ? t.initialOutcome : t.outcome,
-          riskReward: (t.movedTakeProfit === 'yes' && t.initialExitTime) ? t.initialRiskReward : t.riskReward
-        });
-        movedTrades.push(normMoved);
-        notMovedTrades.push(normNotMoved);
-      });
+  if (typeof raw === 'object' && raw !== null) {
+    if (raw.activeId) {
+      if (raw.activeId === MOVED_TP_BACKTEST_ID || raw.activeId === NOT_MOVED_TP_BACKTEST_ID) {
+        activeId = VOL2_BACKTEST_ID;
+        activeTabId = raw.activeId;
+      } else {
+        activeId = raw.activeId;
+      }
     }
+
+    const rawBacktests = Array.isArray(raw.backtests) ? raw.backtests : [];
+
+    let vol2Raw = rawBacktests.find((b) => b.id === VOL2_BACKTEST_ID);
+    let movedBtRaw = rawBacktests.find((b) => b.id === MOVED_TP_BACKTEST_ID);
+    let notMovedBtRaw = rawBacktests.find((b) => b.id === NOT_MOVED_TP_BACKTEST_ID);
+
+    let movedTrades = [];
+    let notMovedTrades = [];
+
+    if (vol2Raw && Array.isArray(vol2Raw.subBacktests)) {
+      activeTabId = vol2Raw.activeTabId || activeTabId;
+      const mBt = vol2Raw.subBacktests.find((s) => s.id === MOVED_TP_BACKTEST_ID);
+      const nmBt = vol2Raw.subBacktests.find((s) => s.id === NOT_MOVED_TP_BACKTEST_ID);
+      if (mBt) movedTrades = (mBt.trades || []).map((t) => normalizeTrade({ ...t, pairId: t.pairId || t.id || idFactory() }));
+      if (nmBt) notMovedTrades = (nmBt.trades || []).map((t) => normalizeTrade({ ...t, pairId: t.pairId || t.id || idFactory() }));
+    } else if (movedBtRaw && notMovedBtRaw) {
+      movedTrades = (movedBtRaw.trades || []).map((t) => normalizeTrade({ ...t, pairId: t.pairId || t.id || idFactory() }));
+      notMovedTrades = (notMovedBtRaw.trades || []).map((t) => normalizeTrade({ ...t, pairId: t.pairId || t.id || idFactory() }));
+    }
+
+    const vol2 = {
+      id: VOL2_BACKTEST_ID,
+      name: VOL2_BACKTEST_NAME,
+      activeTabId,
+      subBacktests: [
+        { id: MOVED_TP_BACKTEST_ID, name: MOVED_TP_BACKTEST_NAME, trades: movedTrades },
+        { id: NOT_MOVED_TP_BACKTEST_ID, name: NOT_MOVED_TP_BACKTEST_NAME, trades: notMovedTrades }
+      ]
+    };
+
+    let vol1Raw = rawBacktests.find((b) => b.id === VOL1_BACKTEST_ID);
+    let vol1Trades = [];
+    if (vol1Raw && Array.isArray(vol1Raw.trades)) {
+      vol1Trades = vol1Raw.trades.map((t) => normalizeTrade(t));
+    } else if (movedTrades.length > 0) {
+      vol1Trades = movedTrades.map((t) => normalizeTrade(t));
+    }
+
+    const vol1 = {
+      id: VOL1_BACKTEST_ID,
+      name: VOL1_BACKTEST_NAME,
+      trades: vol1Trades
+    };
+
+    const customBacktests = rawBacktests
+      .filter((b) => b.id !== VOL2_BACKTEST_ID && b.id !== VOL1_BACKTEST_ID && b.id !== MOVED_TP_BACKTEST_ID && b.id !== NOT_MOVED_TP_BACKTEST_ID)
+      .map((b) => ({
+        id: b.id,
+        name: b.name || 'Custom Backtest',
+        trades: (b.trades || []).map((t) => normalizeTrade(t))
+      }));
+
+    return {
+      activeId,
+      backtests: [vol2, vol1, ...customBacktests]
+    };
   }
 
   return {
-    activeId,
+    activeId: VOL2_BACKTEST_ID,
     backtests: [
-      { id: MOVED_TP_BACKTEST_ID, name: MOVED_TP_BACKTEST_NAME, trades: movedTrades },
-      { id: NOT_MOVED_TP_BACKTEST_ID, name: NOT_MOVED_TP_BACKTEST_NAME, trades: notMovedTrades }
+      {
+        id: VOL2_BACKTEST_ID,
+        name: VOL2_BACKTEST_NAME,
+        activeTabId: MOVED_TP_BACKTEST_ID,
+        subBacktests: [
+          { id: MOVED_TP_BACKTEST_ID, name: MOVED_TP_BACKTEST_NAME, trades: [] },
+          { id: NOT_MOVED_TP_BACKTEST_ID, name: NOT_MOVED_TP_BACKTEST_NAME, trades: [] }
+        ]
+      },
+      {
+        id: VOL1_BACKTEST_ID,
+        name: VOL1_BACKTEST_NAME,
+        trades: []
+      }
     ]
   };
 }

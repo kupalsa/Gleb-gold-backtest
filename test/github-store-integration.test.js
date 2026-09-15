@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { GitHubTradeSync } from '../src/github-sync.js';
 import { TradeStore } from '../src/trade-store.js';
 import { wireDataConnection } from '../src/data-connection.js';
-import { MOVED_TP_BACKTEST_ID } from '../src/backtests.js';
+import { VOL2_BACKTEST_ID } from '../src/backtests.js';
 
 const memoryStorage = () => {
   const values = new Map();
@@ -39,21 +39,21 @@ test('connected GitHub store reads, writes full backtest data structure with SHA
   await store.create({ ...trade('ignored'), id: undefined, pairId: undefined, entryTime: '11:00' });
   assert.equal(writes[0].sha, 'sha-1');
   const payload0 = JSON.parse(atob(writes[0].content));
-  assert.equal(payload0.activeId, MOVED_TP_BACKTEST_ID);
-  assert.deepEqual(payload0.backtests[0].trades.map(({ id }) => id), ['remote-1', 'new-1']);
+  assert.equal(payload0.activeId, VOL2_BACKTEST_ID);
+  assert.deepEqual(payload0.backtests[0].subBacktests[0].trades.map(({ id }) => id), ['remote-1', 'new-1']);
 
   await store.update('new-1', { ...trade('ignored', '12:00'), id: undefined, pairId: undefined });
   const payload1 = JSON.parse(atob(writes[1].content));
-  assert.deepEqual(payload1.backtests[0].trades.map(({ id, entryTime }) => [id, entryTime]), [['remote-1', '09:30'], ['new-1', '12:00']]);
+  assert.deepEqual(payload1.backtests[0].subBacktests[0].trades.map(({ id, entryTime }) => [id, entryTime]), [['remote-1', '09:30'], ['new-1', '12:00']]);
 
   await store.remove('remote-1');
   assert.deepEqual(writes.map(({ sha: savedSha }) => savedSha), ['sha-1', 'sha-2', 'sha-3']);
   const payload2 = JSON.parse(atob(writes[2].content));
-  assert.deepEqual(payload2.backtests[0].trades.map(({ id }) => id), ['new-1']);
+  assert.deepEqual(payload2.backtests[0].subBacktests[0].trades.map(({ id }) => id), ['new-1']);
 
   remote = [trade('refreshed')]; sha = 'sha-remote';
   const syncButton = button(); let refreshed;
-  wireDataConnection({ syncButton, store, refresh: async () => { refreshed = await store.list(); }, setStatus: () => {} });
+  wireDataConnection({ syncButton, store, refresh: async () => { refreshed = await store.list({ forceFetch: true }); }, setStatus: () => {} });
   await syncButton.click();
   assert.deepEqual(refreshed.trades, [trade('refreshed')]);
 
@@ -76,7 +76,7 @@ test('GitHub full-array sync loads and preserves negative risk-reward trade fiel
   assert.deepEqual((await store.list()).trades, [{ ...remote[0], pairId: 'overnight' }]);
   await store.create({ ...trade('ignored', '00:20'), id: undefined, pairId: undefined, exitDate: '2026-09-15', exitTime: '00:30', direction: 'long', outcome: 'win', riskReward: 0, movedTakeProfit: 'yes', takeProfitMoveResult: 'good' });
   const payload = JSON.parse(atob(savedPayload.content));
-  assert.deepEqual(payload.backtests[0].trades.map(({ id, entryTime, exitDate, exitTime, direction, outcome, riskReward, movedTakeProfit, takeProfitMoveResult }) => ({ id, entryTime, exitDate, exitTime, direction, outcome, riskReward, movedTakeProfit, takeProfitMoveResult })), [
+  assert.deepEqual(payload.backtests[0].subBacktests[0].trades.map(({ id, entryTime, exitDate, exitTime, direction, outcome, riskReward, movedTakeProfit, takeProfitMoveResult }) => ({ id, entryTime, exitDate, exitTime, direction, outcome, riskReward, movedTakeProfit, takeProfitMoveResult })), [
     { id: 'overnight', entryTime: '23:50', exitDate: '2026-09-14', exitTime: '00:10', direction: 'short', outcome: 'loss', riskReward: -0.5, movedTakeProfit: 'yes', takeProfitMoveResult: 'wasted' },
     { id: 'new-analytics', entryTime: '00:20', exitDate: '2026-09-15', exitTime: '00:30', direction: 'long', outcome: 'win', riskReward: 0, movedTakeProfit: 'yes', takeProfitMoveResult: 'good' }
   ]);

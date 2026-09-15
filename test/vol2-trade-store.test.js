@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TradeStore } from '../src/trade-store.js';
-import { MOVED_TP_BACKTEST_ID, NOT_MOVED_TP_BACKTEST_ID } from '../src/backtests.js';
+import { VOL2_BACKTEST_ID, MOVED_TP_BACKTEST_ID, NOT_MOVED_TP_BACKTEST_ID } from '../src/backtests.js';
 
 const memoryStorage = (initialData = null) => {
   const values = new Map();
@@ -35,8 +35,9 @@ test('TradeStore creates single trade duplicated across both backtests when move
 
   assert.equal(result.trade.pairId, 'pair-123');
   const data = store.getData();
-  const movedBt = data.backtests.find((b) => b.id === MOVED_TP_BACKTEST_ID);
-  const notMovedBt = data.backtests.find((b) => b.id === NOT_MOVED_TP_BACKTEST_ID);
+  const vol2 = data.backtests.find((b) => b.id === VOL2_BACKTEST_ID);
+  const movedBt = vol2.subBacktests.find((b) => b.id === MOVED_TP_BACKTEST_ID);
+  const notMovedBt = vol2.subBacktests.find((b) => b.id === NOT_MOVED_TP_BACKTEST_ID);
 
   assert.equal(movedBt.trades.length, 1);
   assert.equal(notMovedBt.trades.length, 1);
@@ -69,8 +70,9 @@ test('TradeStore creates paired trade with initial scenario when movedTakeProfit
   });
 
   const data = store.getData();
-  const movedTrade = data.backtests.find((b) => b.id === MOVED_TP_BACKTEST_ID).trades[0];
-  const notMovedTrade = data.backtests.find((b) => b.id === NOT_MOVED_TP_BACKTEST_ID).trades[0];
+  const vol2 = data.backtests.find((b) => b.id === VOL2_BACKTEST_ID);
+  const movedTrade = vol2.subBacktests.find((b) => b.id === MOVED_TP_BACKTEST_ID).trades[0];
+  const notMovedTrade = vol2.subBacktests.find((b) => b.id === NOT_MOVED_TP_BACKTEST_ID).trades[0];
 
   assert.equal(movedTrade.pairId, 'pair-456');
   assert.equal(notMovedTrade.pairId, 'pair-456');
@@ -113,8 +115,9 @@ test('TradeStore update updates paired trade across both backtests by pairId', a
   });
 
   const data = store.getData();
-  const movedTrade = data.backtests.find((b) => b.id === MOVED_TP_BACKTEST_ID).trades[0];
-  const notMovedTrade = data.backtests.find((b) => b.id === NOT_MOVED_TP_BACKTEST_ID).trades[0];
+  const vol2 = data.backtests.find((b) => b.id === VOL2_BACKTEST_ID);
+  const movedTrade = vol2.subBacktests.find((b) => b.id === MOVED_TP_BACKTEST_ID).trades[0];
+  const notMovedTrade = vol2.subBacktests.find((b) => b.id === NOT_MOVED_TP_BACKTEST_ID).trades[0];
 
   assert.equal(movedTrade.outcome, 'win');
   assert.equal(movedTrade.riskReward, 1.5);
@@ -138,22 +141,26 @@ test('TradeStore remove deletes paired trade across both backtests by pairId', a
     movedTakeProfit: 'no'
   });
 
-  assert.equal(store.getData().backtests[0].trades.length, 1);
-  assert.equal(store.getData().backtests[1].trades.length, 1);
+  const vol2Before = store.getData().backtests.find((b) => b.id === VOL2_BACKTEST_ID);
+  assert.equal(vol2Before.subBacktests[0].trades.length, 1);
+  assert.equal(vol2Before.subBacktests[1].trades.length, 1);
 
   await store.remove('pair-999');
 
-  assert.equal(store.getData().backtests[0].trades.length, 0);
-  assert.equal(store.getData().backtests[1].trades.length, 0);
+  const vol2After = store.getData().backtests.find((b) => b.id === VOL2_BACKTEST_ID);
+  assert.equal(vol2After.subBacktests[0].trades.length, 0);
+  assert.equal(vol2After.subBacktests[1].trades.length, 0);
 });
 
-test('TradeStore selectBacktest switches active backtest view between moved-tp and not-moved-tp', async () => {
+test('TradeStore selectBacktest switches active backtest sub-tab view between moved-tp and not-moved-tp', async () => {
   const storage = memoryStorage();
   const store = new TradeStore({ storage, idFactory: () => 'pair-1' });
 
   await store.list();
-  assert.equal(store.getActiveBacktestId(), MOVED_TP_BACKTEST_ID);
+  assert.equal(store.getActiveBacktestId(), VOL2_BACKTEST_ID);
 
   await store.selectBacktest(NOT_MOVED_TP_BACKTEST_ID);
-  assert.equal(store.getActiveBacktestId(), NOT_MOVED_TP_BACKTEST_ID);
+  const listRes = await store.list();
+  assert.equal(listRes.activeId, VOL2_BACKTEST_ID);
+  assert.equal(listRes.activeTabId, NOT_MOVED_TP_BACKTEST_ID);
 });

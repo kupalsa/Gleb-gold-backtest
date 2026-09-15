@@ -1,12 +1,20 @@
+import { VOL2_BACKTEST_ID, MOVED_TP_BACKTEST_ID } from './backtests.js';
+
 export function renderBacktestTabs({
-  activeId = '',
+  activeId = VOL2_BACKTEST_ID,
+  activeTabId = MOVED_TP_BACKTEST_ID,
   containerEl = null
 } = {}) {
   if (!containerEl) return;
+
+  const isVol2 = activeId === VOL2_BACKTEST_ID;
+  containerEl.hidden = !isVol2;
+
+  const currentTabId = isVol2 ? (activeTabId || MOVED_TP_BACKTEST_ID) : activeId;
   const tabs = containerEl.querySelectorAll('[data-backtest]');
   tabs.forEach((tab) => {
     const id = tab.dataset?.backtest || tab.getAttribute('data-backtest');
-    const isActive = id === activeId;
+    const isActive = id === currentTabId;
     tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
     const baseClass = (tab.className || '').replace(/\bactive\b/g, '').trim();
     tab.className = `${baseClass} ${isActive ? 'active' : ''}`.trim();
@@ -54,7 +62,7 @@ export function wireBacktestControls({
     tabs.forEach((tab) => {
       tab.addEventListener('click', async () => {
         const id = tab.dataset?.backtest || tab.getAttribute('data-backtest');
-        if (id && id !== store.getActiveBacktestId()) {
+        if (id) {
           await store.selectBacktest(id);
           await refresh();
         }
