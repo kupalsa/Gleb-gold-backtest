@@ -1,5 +1,8 @@
 const KEY = 'gleb-gold-backtest.github-connection.v1';
 const PATH = 'data/trades.json';
+const RETRY_DELAYS_MS = [300, 700];
+const TRANSIENT_SAVE_STATUSES = new Set([500, 502, 503, 504]);
+const retryDelay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 async function githubFailure(response, action) {
   let detail = '';
@@ -47,7 +50,7 @@ export class GitHubTradeSync {
   }
 
   async save(trades, sha) {
-    const response = await this.fetcher(this.url(), {
+    const options = {
       method: 'PUT',
       headers: {
         Accept: 'application/vnd.github+json',
@@ -55,14 +58,31 @@ export class GitHubTradeSync {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ message: 'Update trades', content: btoa(JSON.stringify(trades, null, 2)), sha })
-    });
-    if (!response.ok) {
+    };
+
+    for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+      let response;
+      try {
+        response = await this.fetcher(this.url(), options);
+      } catch {
+        if (attempt < RETRY_DELAYS_MS.length) {
+          await retryDelay(RETRY_DELAYS_MS[attempt]);
+          continue;
+        }
+        break;
+      }
+
+      if (response.ok) {
+        const result = await response.json();
+        return { ...result, sha: result.content?.sha ?? result.sha };
+      }
       if (response.status === 409 || response.status === 422) {
         throw new Error('GitHub data changed on GitHub. Click Sync trades to load the latest data before retrying; your change was not saved.');
       }
-      throw await githubFailure(response, 'save');
+      if (!TRANSIENT_SAVE_STATUSES.has(response.status)) throw await githubFailure(response, 'save');
+      if (attempt < RETRY_DELAYS_MS.length) await retryDelay(RETRY_DELAYS_MS[attempt]);
     }
-    const result = await response.json();
-    return { ...result, sha: result.content?.sha ?? result.sha };
+
+    throw new Error('GitHub save could not be completed because of a temporary GitHub service or network failure. Please retry your save.');
   }
 }
