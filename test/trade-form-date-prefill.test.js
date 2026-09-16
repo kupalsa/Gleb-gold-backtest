@@ -16,7 +16,7 @@ function formWith({ date = '', exitDate = '', tradeId = '' } = {}) {
   };
 }
 
-test('prefills blank entry and exit dates with the latest saved Jan 22 2025 trade across all backtests', () => {
+test('prefills blank entry and exit dates with the latest saved trade from the active backtest', () => {
   const form = formWith();
 
   prefillTradeFormDates(form, '2025-01-22');

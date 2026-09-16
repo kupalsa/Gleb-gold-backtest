@@ -158,7 +158,7 @@ function values() {
 function clearForm() {
   form.reset();
   $('#trade-id').value = '';
-  prefillTradeFormDates(form, getLatestTradeDate(state.trades, store.listBacktests()));
+  prefillTradeFormDates(form, getLatestTradeDate(state.trades));
   syncTakeProfitMoveForm();
   $('#cancel-edit').hidden = true;
   form.querySelector('.primary').textContent = 'Save trade';
@@ -184,7 +184,7 @@ async function refresh(options = {}) {
   setStatus(result.source);
 
   state.month = getLatestTradeMonth(state.trades, store.listBacktests());
-  prefillTradeFormDates(form, getLatestTradeDate(state.trades, store.listBacktests()));
+  prefillTradeFormDates(form, getLatestTradeDate(state.trades));
 
   const activeId = store.getActiveBacktestId();
   const activeTabId = result.activeTabId;

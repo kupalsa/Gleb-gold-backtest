@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getLatestTradeMonth, getLatestTradeDate } from '../src/trades.js';
+import { prefillTradeFormDates } from '../src/trade-form-date-prefill.js';
 import { readFile } from 'node:fs/promises';
 
 const appSource = await readFile(new URL('../src/app.js', import.meta.url), 'utf8');
@@ -93,10 +94,34 @@ test('app.js integrates getLatestTradeMonth with store.listBacktests() on every 
   assert.match(appSource, /state\.month\s*=\s*getLatestTradeMonth\(\s*state\.trades\s*,\s*store\.listBacktests\(\)\s*\)/);
 });
 
-test('app.js prefills blank new forms on initial refresh, after save, and after canceling an edit without changing edit form values', () => {
+test('app.js prefills blank new forms only from active state.trades on initial refresh, after save, and after canceling an edit without changing edit form values', () => {
   assert.match(appSource, /import\s*\{\s*prefillTradeFormDates\s*\}\s*from\s*'\.\/trade-form-date-prefill\.js'/);
-  assert.match(appSource, /prefillTradeFormDates\(\s*form\s*,\s*getLatestTradeDate\(\s*state\.trades\s*,\s*store\.listBacktests\(\)\s*\)\s*\)/);
+  assert.match(appSource, /prefillTradeFormDates\(\s*form\s*,\s*getLatestTradeDate\(\s*state\.trades\s*\)\s*\)/);
   assert.match(appSource, /function clearForm\(\)\s*\{[\s\S]*?form\.reset\(\);[\s\S]*?prefillTradeFormDates\(/);
   assert.match(appSource, /clearForm\(\);\s*await refresh\(\);/);
   assert.match(appSource, /#cancel-edit'\)\.addEventListener\('click', clearForm\)/);
+});
+
+test('a blank active Vol 2 form remains blank when Vol 1 has a saved September 10 trade', () => {
+  const vol1Backtest = { id: 'vol-1', trades: [{ date: '2026-09-10' }] };
+  const activeVol2Trades = [];
+  const form = {
+    fields: {
+      '#date': { value: '' },
+      '#exitDate': { value: '' },
+      '#trade-id': { value: '' }
+    },
+    querySelector(selector) {
+      return this.fields[selector] || null;
+    }
+  };
+
+  const latestActiveTradeDate = getLatestTradeDate(activeVol2Trades);
+  prefillTradeFormDates(form, latestActiveTradeDate);
+
+  assert.equal(latestActiveTradeDate, null);
+  assert.equal(vol1Backtest.trades[0].date, '2026-09-10');
+  assert.doesNotMatch(appSource, /prefillTradeFormDates\(\s*form\s*,\s*getLatestTradeDate\(\s*state\.trades\s*,\s*store\.listBacktests\(\)/);
+  assert.equal(form.fields['#date'].value, '');
+  assert.equal(form.fields['#exitDate'].value, '');
 });
