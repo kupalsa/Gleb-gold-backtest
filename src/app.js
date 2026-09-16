@@ -1,12 +1,13 @@
 import { TradeStore } from './trade-store.js';
 import { GitHubTradeSync } from './github-sync.js';
 import { wireDataConnection } from './data-connection.js';
-import { validateTrade, groupTradesByDate, tradesForDate, durationInMinutes, riskRewardTotal, tradeStats, getLatestTradeMonth } from './trades.js';
+import { validateTrade, groupTradesByDate, tradesForDate, durationInMinutes, riskRewardTotal, tradeStats, getLatestTradeDate, getLatestTradeMonth } from './trades.js';
 import { calendarCells, shiftMonth } from './calendar.js';
 import { dataStatus, showTradeFailure, showTradeSuccess } from './feedback.js';
 import { syncTakeProfitMoveFields } from './take-profit-move.js';
 import { renderBacktestSelect, renderBacktestTabs, wireBacktestControls } from './backtest-ui.js';
 import { isVol2Suite } from './backtests.js';
+import { prefillTradeFormDates } from './trade-form-date-prefill.js';
 
 const $ = (selector) => document.querySelector(selector);
 const form = $('#trade-form');
@@ -156,8 +157,9 @@ function values() {
 
 function clearForm() {
   form.reset();
-  syncTakeProfitMoveForm();
   $('#trade-id').value = '';
+  prefillTradeFormDates(form, getLatestTradeDate(state.trades, store.listBacktests()));
+  syncTakeProfitMoveForm();
   $('#cancel-edit').hidden = true;
   form.querySelector('.primary').textContent = 'Save trade';
   $('#form-error').textContent = '';
@@ -182,6 +184,7 @@ async function refresh(options = {}) {
   setStatus(result.source);
 
   state.month = getLatestTradeMonth(state.trades, store.listBacktests());
+  prefillTradeFormDates(form, getLatestTradeDate(state.trades, store.listBacktests()));
 
   const activeId = store.getActiveBacktestId();
   const activeTabId = result.activeTabId;

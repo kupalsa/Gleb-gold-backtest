@@ -109,6 +109,24 @@ export function groupTradesByDate(trades) {
   }, {});
 }
 
+export function getLatestTradeDate(trades, backtests = []) {
+  const getMaxDate = (list) => {
+    if (!Array.isArray(list)) return null;
+    return list.reduce((max, trade) => (trade?.date && (!max || trade.date > max) ? trade.date : max), null);
+  };
+
+  let maxDate = getMaxDate(trades);
+  for (const backtest of Array.isArray(backtests) ? backtests : []) {
+    const backtestMax = getMaxDate(backtest?.trades);
+    if (backtestMax && (!maxDate || backtestMax > maxDate)) maxDate = backtestMax;
+    for (const subBacktest of Array.isArray(backtest?.subBacktests) ? backtest.subBacktests : []) {
+      const subBacktestMax = getMaxDate(subBacktest?.trades);
+      if (subBacktestMax && (!maxDate || subBacktestMax > maxDate)) maxDate = subBacktestMax;
+    }
+  }
+  return maxDate;
+}
+
 export function getLatestTradeMonth(trades, backtests = [], fallbackMonth = new Date().toISOString().slice(0, 7)) {
   if (typeof backtests === 'string') {
     fallbackMonth = backtests;

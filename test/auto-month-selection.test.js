@@ -1,9 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getLatestTradeMonth } from '../src/trades.js';
+import { getLatestTradeMonth, getLatestTradeDate } from '../src/trades.js';
 import { readFile } from 'node:fs/promises';
 
 const appSource = await readFile(new URL('../src/app.js', import.meta.url), 'utf8');
+
+test('getLatestTradeDate returns the latest full date across all backtests and Vol 2 subBacktests', () => {
+  const backtests = [
+    { id: 'vol-1', trades: [{ date: '2025-01-20' }] },
+    { id: 'vol-2', subBacktests: [{ trades: [{ date: '2025-01-21' }] }] },
+    { id: 'vol-2-ny', subBacktests: [{ trades: [{ date: '2025-01-22' }] }] }
+  ];
+
+  assert.equal(getLatestTradeDate([], backtests), '2025-01-22');
+});
 
 test('getLatestTradeMonth returns YYYY-MM of the latest trade by date in trades list', () => {
   const trades = [
@@ -81,4 +91,12 @@ test('getLatestTradeMonth prefers active trades over other backtests when active
 
 test('app.js integrates getLatestTradeMonth with store.listBacktests() on every refresh', () => {
   assert.match(appSource, /state\.month\s*=\s*getLatestTradeMonth\(\s*state\.trades\s*,\s*store\.listBacktests\(\)\s*\)/);
+});
+
+test('app.js prefills blank new forms on initial refresh, after save, and after canceling an edit without changing edit form values', () => {
+  assert.match(appSource, /import\s*\{\s*prefillTradeFormDates\s*\}\s*from\s*'\.\/trade-form-date-prefill\.js'/);
+  assert.match(appSource, /prefillTradeFormDates\(\s*form\s*,\s*getLatestTradeDate\(\s*state\.trades\s*,\s*store\.listBacktests\(\)\s*\)\s*\)/);
+  assert.match(appSource, /function clearForm\(\)\s*\{[\s\S]*?form\.reset\(\);[\s\S]*?prefillTradeFormDates\(/);
+  assert.match(appSource, /clearForm\(\);\s*await refresh\(\);/);
+  assert.match(appSource, /#cancel-edit'\)\.addEventListener\('click', clearForm\)/);
 });
